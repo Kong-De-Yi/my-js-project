@@ -67,6 +67,25 @@ class ValidationEngine {
           message: params?.message || "必须是有效的数字",
         };
       },
+
+      //时间
+      date: (value, params) => {
+        if (value === undefined || value === null || value === "") {
+          return { valid: true };
+        }
+
+        // 移除可能的前导引号
+        const cleanValue = String(value).replace(/^'/, "");
+
+        // 尝试解析日期
+        const timestamp = Date.parse(cleanValue);
+        const isValidDate = !isNaN(timestamp);
+
+        return {
+          valid: isValidDate,
+          message: params?.message || "不是有效的日期格式",
+        };
+      },
     };
   }
 

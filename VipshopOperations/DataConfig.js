@@ -12,121 +12,56 @@ class DataConfig {
       return DataConfig._instance;
     }
 
-    // ========== 1. 商品主实体配置 ==========
+    // ========== 1. 货号总表实体配置 ==========
     this.PRODUCT = {
       worksheet: "货号总表",
+
       fields: {
-        // 唯一标识
+        //货号
         itemNumber: {
           title: "货号",
           type: "string",
-          persist: true,
           unique: true,
-          validators: [{ type: "required", message: "货号不能为空" }],
-        },
-        brandSN: {
-          title: "品牌SN",
-          type: "string",
-          persist: true,
-          validators: [{ type: "required" }],
-        },
-        styleNumber: { title: "款号", type: "string", persist: true },
-        designNumber: { title: "设计号", type: "string", persist: true },
-        color: { title: "颜色", type: "string", persist: true },
-        P_SPU: {
-          title: "P_SPU",
-          type: "string",
-          persist: true,
-          validators: [
-            {
-              type: "pattern",
-              params: {
-                regex: /^SPU-[A-F0-9]{16}$/,
-                description: "格式: SPU-16位大写十六进制",
-              },
-            },
-          ],
-        },
-        MID: {
-          title: "MID",
-          type: "string",
-          persist: true,
-          validators: [
-            {
-              type: "pattern",
-              params: {
-                regex: /^69\d{17}$/,
-                description: "69开头的19位数字",
-              },
-            },
-          ],
         },
 
-        // 分类
-        thirdLevelCategory: {
-          title: "三级品类",
-          type: "string",
-          persist: true,
-        },
-        fourthLevelCategory: {
-          title: "四级品类",
-          type: "string",
-          persist: true,
-        },
-        operationClassification: {
-          title: "运营分类",
-          type: "string",
-          persist: true,
+        //款号
+        styleNumber: { title: "款号", type: "string" },
+
+        //颜色
+        color: { title: "颜色", type: "string" },
+
+        //链接
+        link: {
+          title: "链接",
+          type: "computed",
+          compute: (obj) =>
+            obj.MID
+              ? `https://detail.vip.com/detail-1234-${obj.MID}.html`
+              : undefined,
         },
 
-        // 时间
+        // 首次上架时间
         firstListingTime: {
           title: "首次上架时间",
           type: "string",
-          persist: true,
+          validators: [{ type: "date" }],
         },
 
-        // 价格
-        costPrice: {
-          title: "成本价",
-          type: "number",
-          persist: true,
-          validators: [{ type: "nonNegative" }],
-        },
-        lowestPrice: {
-          title: "最低价",
-          type: "number",
-          persist: true,
-          validators: [{ type: "nonNegative" }],
-        },
-        silverPrice: {
-          title: "白金价",
-          type: "number",
-          persist: true,
-          validators: [{ type: "nonNegative" }],
-        },
-        vipshopPrice: { title: "唯品价", type: "number", persist: true },
-        finalPrice: { title: "到手价", type: "number", persist: true },
-
-        // 运营
-        userOperations1: {
-          title: "中台1",
-          type: "number",
-          persist: true,
-          validators: [{ type: "nonNegative" }],
-        },
-        userOperations2: {
-          title: "中台2",
-          type: "number",
-          persist: true,
-          validators: [{ type: "nonNegative" }],
+        //售龄
+        salesAge: {
+          title: "售龄",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.firstListingTime) return undefined;
+            const ts = Date.parse(obj.firstListingTime);
+            return Math.floor((Date.now() - ts) / 86400000);
+          },
         },
 
-        // 状态
+        // 商品状态
         itemStatus: {
           title: "商品状态",
           type: "string",
-          persist: true,
           validators: [
             {
               type: "enum",
@@ -134,10 +69,92 @@ class DataConfig {
             },
           ],
         },
+
+        //活动状态
+        activityStatus: {
+          title: "活动状态",
+          type: "computed",
+          compute: (obj) => {
+            switch (obj.finalPrice) {
+              case obj.directTrainPrice:
+                return "直通车";
+              case obj.goldPrice:
+                return "黄金促";
+              case obj.goldLimit:
+                return "黄金限量";
+              case obj.silverPrice:
+                return "白金促";
+              case obj.silverLimit:
+                return "白金限量";
+            }
+            return undefined;
+          },
+        },
+
+        //图片
+        picture: { title: "图片", type: "string" },
+
+        //设计号
+        designNumber: { title: "设计号", type: "string" },
+
+        //通货款号
+        generalGoodsStyleNumber: {
+          title: "通货款号",
+          type: "string",
+        },
+
+        //上市年份
+        listingYear: {
+          title: "上市年份",
+          type: "number",
+          validators: [
+            {
+              type: "enum",
+              params: { values: [2023, 2024, 2025, 2026, 2027, 2028] },
+            },
+          ],
+        },
+
+        //主销季节
+        mainSalesSeason: {
+          title: "主销季节",
+          type: "string",
+          validators: [
+            { type: "enum", params: { values: ["春秋", "夏", "冬", "四季"] } },
+          ],
+        },
+
+        //适用性别
+        applicableGender: {
+          title: "适用性别",
+          type: "string",
+          validators: [
+            { type: "enum", params: { values: ["男童", "女童", "中性"] } },
+          ],
+        },
+
+        //四级品类
+        fourthLevelCategory: { title: "四级品类", type: "string" },
+
+        //运营分类
+        operationClassification: { title: "运营分类", type: "string" },
+
+        //备货模式
+        stockingMode: {
+          title: "备货模式",
+          type: "string",
+          validators: [
+            {
+              type: "enum",
+              params: { values: ["现货", "通版通货", "专版通货"] },
+            },
+          ],
+        },
+
+        //下线原因
         offlineReason: {
           title: "下线原因",
           type: "string",
-          persist: true,
           validators: [
             {
               type: "enum",
@@ -156,10 +173,11 @@ class DataConfig {
             },
           ],
         },
+
+        //营销定位
         marketingPositioning: {
           title: "营销定位",
           type: "string",
-          persist: true,
           validators: [
             {
               type: "enum",
@@ -167,235 +185,65 @@ class DataConfig {
             },
           ],
         },
-        stockingMode: {
-          title: "备货模式",
-          type: "string",
-          persist: true,
-          validators: [
-            {
-              type: "enum",
-              params: { values: ["现货", "通版通货", "专版通货"] },
-            },
-          ],
+        //营销备忘录
+        marketingMemorandum: { title: "营销备忘录", type: "string" },
+
+        //成本价
+        costPrice: {
+          title: "成本价",
+          type: "number",
+          validators: [{ type: "positive" }],
         },
 
-        // 库存
-        sellableInventory: { title: "可售库存", type: "number", persist: true },
-        sellableDays: { title: "可售天数", type: "number", persist: true },
-        isOutOfStock: { title: "是否断码", type: "string", persist: true },
-
-        // 成品库存明细
-        finishedGoodsMainInventory: {
-          title: "成品主仓",
+        //最低价
+        lowestPrice: {
+          title: "最低价",
           type: "number",
-          persist: true,
-        },
-        finishedGoodsIncomingInventory: {
-          title: "成品进货",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsFinishingInventory: {
-          title: "成品后整",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsOversoldInventory: {
-          title: "成品超卖",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsPrepareInventory: {
-          title: "成品备货",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsReturnInventory: {
-          title: "成品销退",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsPurchaseInventory: {
-          title: "成品在途",
-          type: "number",
-          persist: true,
-        },
-        finishedGoodsTotalInventory: {
-          title: "成品合计",
-          type: "number",
-          persist: true,
+          validators: [{ type: "positive" }],
         },
 
-        // 通货库存明细
-        generalGoodsMainInventory: {
-          title: "通货主仓",
+        //白金价
+        silverPrice: {
+          title: "白金价",
           type: "number",
-          persist: true,
-        },
-        generalGoodsIncomingInventory: {
-          title: "通货进货",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsFinishingInventory: {
-          title: "通货后整",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsOversoldInventory: {
-          title: "通货超卖",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsPrepareInventory: {
-          title: "通货备货",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsReturnInventory: {
-          title: "通货销退",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsPurchaseInventory: {
-          title: "通货在途",
-          type: "number",
-          persist: true,
-        },
-        generalGoodsTotalInventory: {
-          title: "通货合计",
-          type: "number",
-          persist: true,
+          validators: [{ type: "positive" }],
         },
 
-        totalInventory: { title: "合计库存", type: "number", persist: true },
-
-        // 销售数据
-        salesQuantityOfLast7Days: {
-          title: "近7天销售量",
+        // 中台1
+        userOperations1: {
+          title: "中台1",
           type: "number",
-          persist: true,
-        },
-        salesAmountOfLast7Days: {
-          title: "近7天销售额",
-          type: "number",
-          persist: true,
-        },
-        unitPriceOfLast7Days: {
-          title: "近7天件单价",
-          type: "number",
-          persist: true,
-        },
-        exposureUVOfLast7Days: {
-          title: "近7天曝光UV",
-          type: "number",
-          persist: true,
-        },
-        productDetailsUVOfLast7Days: {
-          title: "近7天商详UV",
-          type: "number",
-          persist: true,
-        },
-        addToCartUVOfLast7Days: {
-          title: "近7天加购UV",
-          type: "number",
-          persist: true,
-        },
-        customerCountOfLast7Days: {
-          title: "近7天客户数",
-          type: "number",
-          persist: true,
-        },
-        rejectAndReturnCountOfLast7Days: {
-          title: "近7天拒退数",
-          type: "number",
-          persist: true,
-        },
-        clickThroughRateOfLast7Days: {
-          title: "近7天点击率",
-          type: "number",
-          persist: true,
-        },
-        addToCartRateOfLast7Days: {
-          title: "近7天加购率",
-          type: "number",
-          persist: true,
-        },
-        purchaseRateOfLast7Days: {
-          title: "近7天转化率",
-          type: "number",
-          persist: true,
-        },
-        rejectAndReturnRateOfLast7Days: {
-          title: "近7天拒退率",
-          type: "number",
-          persist: true,
-        },
-        styleSalesOfLast7Days: {
-          title: "近7天款销量",
-          type: "number",
-          persist: true,
+          validators: [{ type: "nonNegative" }],
         },
 
-        totalSales: { title: "销量总计", type: "number", persist: true },
+        //中台2
+        userOperations2: {
+          title: "中台2",
+          type: "number",
+          validators: [{ type: "nonNegative" }],
+        },
 
-        // ========== 计算字段（不持久化）==========
-        link: {
-          title: "链接",
-          type: "computed",
-          persist: false,
-          compute: (obj) =>
-            obj.MID
-              ? `https://detail.vip.com/detail-1234-${obj.MID}.html`
-              : undefined,
+        //到手价
+        finalPrice: {
+          title: "到手价",
+          type: "number",
+          validators: [{ type: "positive" }],
         },
-        salesAge: {
-          title: "售龄",
-          type: "computed",
-          persist: false,
-          compute: (obj) => {
-            if (!obj.firstListingTime) return undefined;
-            const ts = Date.parse(obj.firstListingTime);
-            return isNaN(ts)
-              ? undefined
-              : Math.floor((Date.now() - ts) / 86400000);
-          },
-        },
-        activityStatus: {
-          title: "活动状态",
-          type: "computed",
-          persist: false,
-          compute: (obj) => {
-            if (obj.vipshopPrice && obj.finalPrice) {
-              return obj.vipshopPrice > obj.finalPrice ? "活动中" : "未提报";
-            }
-            return "(未知)";
-          },
-        },
-        isPriceBroken: {
-          title: "是否破价",
-          type: "computed",
-          persist: false,
-          compute: (obj) => {
-            if (obj.finalPrice && obj.lowestPrice) {
-              return obj.lowestPrice > obj.finalPrice ? "是" : undefined;
-            }
-            return "(未知)";
-          },
-        },
+
+        //首单价
         firstOrderPrice: {
           title: "首单价",
           type: "computed",
-          persist: false,
           compute: (obj) =>
             obj.finalPrice
               ? obj.finalPrice - (obj.userOperations1 || 0)
               : undefined,
         },
+
+        //超V价
         superVipPrice: {
           title: "超V价",
           type: "computed",
-          persist: false,
           compute: (obj, context) => {
             if (!obj.finalPrice || !context?.brandConfig) return undefined;
             const brand = context.brandConfig[obj.brandSN];
@@ -406,18 +254,26 @@ class DataConfig {
                 ? Math.round(obj.finalPrice * brand.vipDiscountRate)
                 : Number((obj.finalPrice * brand.vipDiscountRate).toFixed(1));
 
-            return (
-              obj.finalPrice -
-              discount -
-              (obj.userOperations1 || 0) -
-              (obj.userOperations2 || 0)
-            );
+            return obj.finalPrice - discount - (obj.userOperations1 || 0);
           },
         },
+
+        //是否破价
+        isPriceBroken: {
+          title: "是否破价",
+          type: "computed",
+          compute: (obj) => {
+            if (obj.finalPrice && obj.lowestPrice) {
+              return obj.lowestPrice > obj.finalPrice ? "是" : undefined;
+            }
+            return "(未知)";
+          },
+        },
+
+        //利润
         profit: {
           title: "利润",
           type: "computed",
-          persist: false,
           compute: (obj, context) => {
             return context?.profitCalculator?.calculateProfit(
               obj.brandSN,
@@ -429,10 +285,11 @@ class DataConfig {
             );
           },
         },
+
+        //利润率
         profitRate: {
           title: "利润率",
           type: "computed",
-          persist: false,
           compute: (obj, context) => {
             const profit = context?.profitCalculator?.calculateProfit(
               obj.brandSN,
@@ -447,6 +304,306 @@ class DataConfig {
               : undefined;
           },
         },
+      },
+
+      //直通车
+      directTrainPrice: {
+        title: "直通车",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      //黄金促
+      goldPrice: {
+        title: "黄金促",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      //黄金限量
+      goldLimit: {
+        title: "黄金限量",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      //TOP3
+      top3: {
+        title: "TOP3",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      //白金限量
+      silverLimit: {
+        title: "白金限量",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      //可售库存
+      sellableInventory: {
+        title: "可售库存",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+
+      //可售天数
+      sellableDays: {
+        title: "可售天数",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+
+      //是否断码
+      isOutOfStock: {
+        title: "是否断码",
+        type: "string",
+        validators: [{ type: "enum", params: { values: ["是", undefined] } }],
+      },
+
+      //合计库存
+      totalInventory: {
+        title: "合计库存",
+        type: "computed",
+        compute: (obj) => {
+          obj.finishedGoodsMainInventory +
+            obj.finishedGoodsIncomingInventory +
+            obj.finishedGoodsFinishingInventory +
+            obj.finishedGoodsOversoldInventory +
+            obj.finishedGoodsPrepareInventory +
+            obj.finishedGoodsReturnInventory +
+            obj.finishedGoodsPurchaseInventory +
+            obj.generalGoodsMainInventory +
+            obj.generalGoodsIncomingInventory +
+            obj.generalGoodsFinishingInventory +
+            obj.generalGoodsOversoldInventory +
+            obj.generalGoodsPrepareInventory +
+            obj.generalGoodsReturnInventory +
+            obj.generalGoodsPurchaseInventory;
+        },
+      },
+
+      //成品合计
+      finishedGoodsTotalInventory: {
+        title: "成品合计",
+        type: "computed",
+        compute: (obj) => {
+          obj.finishedGoodsMainInventory +
+            obj.finishedGoodsIncomingInventory +
+            obj.finishedGoodsFinishingInventory +
+            obj.finishedGoodsOversoldInventory +
+            obj.finishedGoodsPrepareInventory +
+            obj.finishedGoodsReturnInventory +
+            obj.finishedGoodsPurchaseInventory;
+        },
+      },
+
+      // 成品库存明细
+      finishedGoodsMainInventory: {
+        title: "成品主仓",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsIncomingInventory: {
+        title: "成品进货",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsFinishingInventory: {
+        title: "成品后整",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsOversoldInventory: {
+        title: "成品超卖",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsPrepareInventory: {
+        title: "成品备货",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsReturnInventory: {
+        title: "成品销退",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      finishedGoodsPurchaseInventory: {
+        title: "成品在途",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+
+      //通货合计
+      generalGoodsTotalInventory: {
+        title: "通货合计",
+        type: "computed",
+        compute: (obj) => {
+          obj.generalGoodsMainInventory +
+            obj.generalGoodsIncomingInventory +
+            obj.generalGoodsFinishingInventory +
+            obj.generalGoodsOversoldInventory +
+            obj.generalGoodsPrepareInventory +
+            obj.generalGoodsReturnInventory +
+            obj.generalGoodsPurchaseInventory;
+        },
+      },
+
+      // 通货库存明细
+      generalGoodsMainInventory: {
+        title: "通货主仓",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsIncomingInventory: {
+        title: "通货进货",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsFinishingInventory: {
+        title: "通货后整",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsOversoldInventory: {
+        title: "通货超卖",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsPrepareInventory: {
+        title: "通货备货",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsReturnInventory: {
+        title: "通货销退",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+      generalGoodsPurchaseInventory: {
+        title: "通货在途",
+        type: "number",
+        validators: [{ type: "nonNegative" }],
+      },
+
+      //品牌SN
+      brandSN: {
+        title: "品牌SN",
+        type: "string",
+        validators: [{ type: "required" }],
+      },
+
+      //MID
+      MID: {
+        title: "MID",
+        type: "string",
+        validators: [
+          {
+            type: "pattern",
+            params: {
+              regex: /^69\d{17}$/,
+              description: "69开头的19位数字",
+            },
+          },
+        ],
+      },
+
+      //P_SPU
+      P_SPU: {
+        title: "P_SPU",
+        type: "string",
+        validators: [
+          {
+            type: "pattern",
+            params: {
+              regex: /^SPU-[A-F0-9]{16}$/,
+              description: "格式: SPU-16位大写十六进制",
+            },
+          },
+        ],
+      },
+
+      // 三级品类
+      thirdLevelCategory: {
+        title: "三级品类",
+        type: "string",
+        validators: [
+          {
+            type: "enum",
+            params: {
+              values: [
+                "儿童文胸",
+                "儿童配饰配件",
+                "儿童礼服/演出服",
+                "儿童羽绒服",
+                "儿童棉服",
+                "儿童外套/夹克/风衣",
+                "儿童防晒服/皮肤衣",
+                "儿童毛衣/线衫",
+                "儿童套装",
+                "儿童卫衣",
+                "儿童T恤/POLO衫",
+                "儿童背心",
+                "儿童衬衫",
+                "儿童马甲",
+                "儿童裙子",
+                "儿童旗袍/汉服",
+                "儿童披肩/斗篷",
+                "儿童裤子",
+                "儿童保暖内衣/套装",
+                "儿童睡衣家居服",
+                "儿童内裤",
+                "儿童打底裤/连袜裤",
+                "儿童袜子",
+                "儿童雨衣/雨具",
+                "儿童泳装泳具",
+                "反穿衣/画画衣",
+                "儿童冲锋衣",
+                "儿童户外服",
+                "婴幼T恤",
+                "婴幼衬衫",
+                "婴幼家居服",
+                "婴幼内衣内裤",
+                "婴幼羽绒服",
+                "婴幼棉服",
+                "婴幼披风/斗篷",
+                "肚兜/肚围/护脐带",
+                "婴幼套装",
+                "哈衣/爬服/连体服",
+                "婴幼裤子",
+                "婴幼裙子",
+                "婴幼外套/风衣",
+                "婴幼毛衣/线衫",
+                "婴幼背心/马甲",
+                "婴幼卫衣/运动服",
+                "婴儿服饰礼盒",
+                "婴儿袜子",
+                "婴幼配饰",
+                "婴幼抱被/抱毯",
+                "婴幼泳装泳具",
+                "婴幼防晒服/皮肤衣",
+                "婴幼礼服/演出服",
+                "婴幼旗袍/汉服",
+              ],
+            },
+          },
+        ],
+      },
+
+      // 市场价
+      tagPrice: {
+        title: "市场价",
+        type: "number",
+        validators: [{ type: "positive" }],
+      },
+
+      // 唯品价
+      vipshopPrice: {
+        title: "唯品价",
+        type: "number",
+        validators: [{ type: "positive" }],
       },
 
       // 默认排序：按首次上架时间倒序
@@ -466,40 +623,34 @@ class DataConfig {
         itemNumber: {
           title: "货号",
           type: "string",
-          persist: true,
           unique: true,
           validators: [{ type: "required" }],
         },
-        designNumber: { title: "设计号", type: "string", persist: true },
-        picture: { title: "图片", type: "string", persist: true },
+        designNumber: { title: "设计号", type: "string" },
+        picture: { title: "图片", type: "string" },
         costPrice: {
           title: "成本价",
           type: "number",
-          persist: true,
           validators: [{ type: "required" }, { type: "positive" }],
         },
         lowestPrice: {
           title: "最低价",
           type: "number",
-          persist: true,
           validators: [{ type: "required" }, { type: "positive" }],
         },
         silverPrice: {
           title: "白金价",
           type: "number",
-          persist: true,
           validators: [{ type: "required" }, { type: "positive" }],
         },
         userOperations1: {
           title: "中台1",
           type: "number",
-          persist: true,
           validators: [{ type: "nonNegative" }],
         },
         userOperations2: {
           title: "中台2",
           type: "number",
-          persist: true,
           validators: [{ type: "nonNegative" }],
         },
       },
