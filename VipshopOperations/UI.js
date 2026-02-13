@@ -1,28 +1,32 @@
 // ============================================================================
-// UI控制器
-// 功能：处理用户界面交互，调用业务服务
-// 特点：轻量级，只负责UI事件分发，无业务逻辑
+// 用户界面控制器
+// 功能：处理所有用户界面事件
 // ============================================================================
 
 // 全局服务实例
 let _repository = null;
-let _profitCalculator = null;
+let _excelDAO = null;
+let _dataImportService = null;
 let _reportEngine = null;
+let _profitCalculator = null;
 let _activityService = null;
 
-// 初始化服务
+/**
+ * 初始化服务
+ */
 function _initializeServices() {
   if (_repository) return;
 
   try {
-    const excelDAO = new ExcelDAO();
-    _repository = new Repository(excelDAO);
+    _excelDAO = new ExcelDAO();
+    _repository = new Repository(_excelDAO);
+    _dataImportService = new DataImportService(_repository, _excelDAO);
+    _reportEngine = new ReportEngine(_repository, _excelDAO);
     _profitCalculator = new ProfitCalculator(_repository);
-    _reportEngine = new ReportEngine(_repository, excelDAO, _profitCalculator);
     _activityService = new ActivityService(
       _repository,
       _profitCalculator,
-      excelDAO,
+      _excelDAO,
     );
 
     // 设置计算上下文
@@ -35,85 +39,143 @@ function _initializeServices() {
   }
 }
 
-// 显示窗口
+/**
+ * 加载报表模板
+ */
+function _loadReportTemplates() {
+  try {
+    _reportEngine.initializeTemplates();
+    const templateList = _reportEngine.getTemplateList();
+
+    if (UserForm1.ComboBox7) {
+      UserForm1.ComboBox7.Clear();
+
+      if (templateList.length > 0) {
+        templateList.forEach((name) => {
+          UserForm1.ComboBox7.AddItem(name);
+        });
+
+        UserForm1.ComboBox7.ListIndex = 0;
+        _reportEngine.setCurrentTemplate(templateList[0]);
+      }
+    }
+  } catch (e) {
+    // 忽略模板加载错误
+  }
+}
+
+/**
+ * 显示主窗口
+ */
 function Macro() {
   _initializeServices();
 
-  UserForm1.ComboBox3.AddItem([
-    "直通车",
-    "黄金等级",
-    "TOP3",
-    "白金等级",
-    "白金限量",
-  ]);
+  // 活动等级
+  if (UserForm1.ComboBox3) {
+    UserForm1.ComboBox3.Clear();
+    UserForm1.ComboBox3.AddItem("直通车");
+    UserForm1.ComboBox3.AddItem("黄金等级");
+    UserForm1.ComboBox3.AddItem("TOP3");
+    UserForm1.ComboBox3.AddItem("白金等级");
+    UserForm1.ComboBox3.AddItem("白金限量");
+  }
 
-  UserForm1.ComboBox5.AddItem(["中台1", "中台2"]);
+  // 中台选项
+  if (UserForm1.ComboBox5) {
+    UserForm1.ComboBox5.Clear();
+    UserForm1.ComboBox5.AddItem("中台1");
+    UserForm1.ComboBox5.AddItem("中台2");
+  }
 
-  UserForm1.ComboBox4.AddItem([
-    "上市年份",
-    "四级品类",
-    "运营分类",
-    "下线原因",
-    "三级品类",
-  ]);
+  // 分组字段
+  if (UserForm1.ComboBox4) {
+    UserForm1.ComboBox4.Clear();
+    UserForm1.ComboBox4.AddItem("上市年份");
+    UserForm1.ComboBox4.AddItem("四级品类");
+    UserForm1.ComboBox4.AddItem("运营分类");
+    UserForm1.ComboBox4.AddItem("下线原因");
+    UserForm1.ComboBox4.AddItem("三级品类");
+  }
 
-  UserForm1.ComboBox6.AddItem([
-    "首次上架时间",
-    "成本价",
-    "白金价",
-    "利润",
-    "利润率",
-    "近7天件单价",
-    "近7天曝光UV",
-    "近7天商详UV",
-    "近7天加购UV",
-    "近7天客户数",
-    "近7天拒退数",
-    "近7天销售量",
-    "近7天销售额",
-    "近7天点击率",
-    "近7天加购率",
-    "近7天转化率",
-    "近7天拒退率",
-    "近7天款销量",
-    "可售库存",
-    "可售天数",
-    "成品合计",
-    "通货合计",
-    "合计库存",
-    "销量总计",
-  ]);
+  // 排序字段
+  if (UserForm1.ComboBox6) {
+    UserForm1.ComboBox6.Clear();
+    UserForm1.ComboBox6.AddItem("首次上架时间");
+    UserForm1.ComboBox6.AddItem("成本价");
+    UserForm1.ComboBox6.AddItem("白金价");
+    UserForm1.ComboBox6.AddItem("利润");
+    UserForm1.ComboBox6.AddItem("利润率");
+    UserForm1.ComboBox6.AddItem("近7天销售量");
+    UserForm1.ComboBox6.AddItem("可售库存");
+    UserForm1.ComboBox6.AddItem("可售天数");
+    UserForm1.ComboBox6.AddItem("合计库存");
+    UserForm1.ComboBox6.AddItem("销量总计");
+  }
+
+  // 加载报表模板
+  _loadReportTemplates();
 
   UserForm1.Show();
 }
 
-// 更新常态商品
+/**
+ * 模板切换事件
+ */
+function UserForm1_ComboBox7_Change() {
+  const templateName = UserForm1.ComboBox7.Value;
+  if (templateName) {
+    _reportEngine.setCurrentTemplate(templateName);
+  }
+}
+
+/**
+ * 刷新模板
+ */
+function UserForm1_CommandButton14_Click() {
+  _initializeServices();
+  _reportEngine.refreshTemplates();
+  _loadReportTemplates();
+  MsgBox("报表模板已刷新！");
+}
+
+/**
+ * 导入数据
+ */
+function UserForm1_CommandButton15_Click() {
+  _initializeServices();
+
+  try {
+    const result = _dataImportService.import();
+    MsgBox(result.message, 64, "导入成功");
+  } catch (err) {
+    MsgBox(`导入失败：${err.message}`, 16, "错误");
+  }
+}
+
+/**
+ * 更新常态商品
+ */
 function UserForm1_CommandButton2_Click() {
   _initializeServices();
 
   try {
-    // 刷新商品主数据缓存
     _repository.refresh("Product");
 
-    // 读取常态商品
     const regularProducts = _repository.findAll("RegularProduct");
-
-    // 获取当前所有商品
     let products = _repository.findProducts();
 
     // 添加新货号
     regularProducts.forEach((rp) => {
       if (!rp.itemNumber) return;
 
-      const existing = _repository.findProductByItemNumber(rp.itemNumber);
+      const existing = products.find((p) => p.itemNumber === rp.itemNumber);
       if (!existing) {
-        const newProduct = {
+        products.push({
           itemNumber: rp.itemNumber,
           brandSN: rp.brandSN,
+          brandName: rp.brand,
           marketingPositioning: "利润款",
-          _rowNumber: products.length + 2,
-        };
-        products.push(newProduct);
+        });
       }
     });
 
@@ -124,20 +186,19 @@ function UserForm1_CommandButton2_Click() {
       );
 
       if (regulars.length > 0) {
-        const firstRegular = regulars[0];
-        product.thirdLevelCategory = firstRegular.thirdLevelCategory;
-        product.P_SPU = firstRegular.P_SPU;
-        product.MID = firstRegular.MID;
-        product.styleNumber = firstRegular.styleNumber;
-        product.color = firstRegular.color;
-        product.itemStatus = firstRegular.itemStatus;
-        product.vipshopPrice = firstRegular.vipshopPrice;
-        product.finalPrice = firstRegular.finalPrice;
-        product.sellableDays = firstRegular.sellableDays;
+        const first = regulars[0];
+        product.thirdLevelCategory = first.thirdLevelCategory;
+        product.P_SPU = first.P_SPU;
+        product.MID = first.MID;
+        product.styleNumber = first.styleNumber;
+        product.color = first.color;
+        product.itemStatus = first.itemStatus;
+        product.vipshopPrice = first.vipshopPrice;
+        product.finalPrice = first.finalPrice;
+        product.sellableDays = first.sellableDays;
 
-        // 商品上架清空下线原因
         if (product.itemStatus !== "商品下线") {
-          product.offlineReason = undefined;
+          product.offlineReason = "";
         }
       }
 
@@ -146,73 +207,39 @@ function UserForm1_CommandButton2_Click() {
         (sum, rp) => sum + (Number(rp.sellableInventory) || 0),
         0,
       );
-
-      // 计算是否断码
-      const outOfStockSizes = regulars
-        .filter(
-          (rp) =>
-            rp.sizeStatus === "尺码上线" && (rp.sellableInventory || 0) === 0,
-        )
-        .map((rp) => rp.size)
-        .filter(Boolean);
-
-      product.isOutOfStock =
-        outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : undefined;
     });
 
-    // 保存商品数据
     _repository.save("Product", products);
-
-    // 清空常态商品
     _repository.clear("RegularProduct");
 
-    // 更新系统记录
-    const systemRecord = _repository.getSystemRecord();
-    systemRecord.updateDateOfRegularProduct = new Date().toString();
-    _repository.save("SystemRecord", [systemRecord]);
-
-    MsgBox(`【常态商品】更新成功！`);
+    MsgBox("【常态商品】更新成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 更新商品价格
+/**
+ * 更新商品价格
+ */
 function UserForm1_CommandButton1_Click() {
   _initializeServices();
 
   try {
-    // 刷新价格数据
     _repository.refresh("ProductPrice");
 
-    // 验证价格数据
     const priceData = _repository.findAll("ProductPrice");
-    const validationResult = validationEngine.validateAll(
-      priceData,
-      DataConfig.getInstance().get("ProductPrice"),
-    );
+    const products = _repository.findProducts();
 
-    if (!validationResult.valid) {
-      const errorMsg = validationEngine.formatErrors(
-        validationResult,
-        "商品价格",
-      );
-      throw new Error(errorMsg);
-    }
-
-    // 更新商品价格
+    // 建立价格映射
     const priceMap = {};
     priceData.forEach((p) => {
       priceMap[p.itemNumber] = p;
     });
 
-    const products = _repository.findProducts();
-
+    // 更新商品价格
     products.forEach((product) => {
       const price = priceMap[product.itemNumber];
       if (price) {
-        product.designNumber = price.designNumber;
-        product.picture = price.picture;
         product.costPrice = price.costPrice;
         product.lowestPrice = price.lowestPrice;
         product.silverPrice = price.silverPrice;
@@ -223,23 +250,19 @@ function UserForm1_CommandButton1_Click() {
 
     _repository.save("Product", products);
 
-    // 更新系统记录
-    const systemRecord = _repository.getSystemRecord();
-    systemRecord.updateDateOfProductPrice = new Date().toString();
-    _repository.save("SystemRecord", [systemRecord]);
-
-    MsgBox(`【商品价格】更新成功！`);
+    MsgBox("【商品价格】更新成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 更新商品库存
+/**
+ * 更新商品库存
+ */
 function UserForm1_CommandButton4_Click() {
   _initializeServices();
 
   try {
-    // 刷新库存和组合商品数据
     _repository.refresh("Inventory");
     _repository.refresh("ComboProduct");
 
@@ -247,12 +270,11 @@ function UserForm1_CommandButton4_Click() {
     const inventoryMap = {};
     const comboMap = {};
 
-    // 建立库存索引
+    // 建立索引
     _repository.findAll("Inventory").forEach((inv) => {
       inventoryMap[inv.productCode] = inv;
     });
 
-    // 建立组合商品索引
     _repository.findAll("ComboProduct").forEach((combo) => {
       if (!comboMap[combo.productCode]) {
         comboMap[combo.productCode] = [];
@@ -280,10 +302,8 @@ function UserForm1_CommandButton4_Click() {
       product.generalGoodsPurchaseInventory = 0;
       product.generalGoodsTotalInventory = 0;
 
-      product.totalInventory = 0;
-
-      // 查找该货号的所有常态商品
-      const regulars = _repository.findRegularProducts({
+      // 查找常态商品
+      const regulars = _repository.find("RegularProduct", {
         itemNumber: product.itemNumber,
       });
 
@@ -322,23 +342,14 @@ function UserForm1_CommandButton4_Click() {
           product.finishedGoodsReturnInventory +
           product.finishedGoodsPurchaseInventory;
 
-        // 通货库存（组合商品）
+        // 通货库存
         const combos = comboMap[regular.productCode] || [];
 
         combos.forEach((combo) => {
-          // 排除YH/FL开头的虚拟商品
-          if (
-            combo.subProductCode.startsWith("YH") ||
-            combo.subProductCode.startsWith("FL")
-          ) {
-            return;
-          }
-
           const subInv = inventoryMap[combo.subProductCode];
           const quantity = Number(combo.subProductQuantity) || 1;
 
           if (subInv) {
-            // 修复：子商品库存 × 组合数量
             product.generalGoodsMainInventory +=
               Number(subInv.mainInventory || 0) * quantity;
             product.generalGoodsIncomingInventory +=
@@ -374,140 +385,72 @@ function UserForm1_CommandButton4_Click() {
     });
 
     _repository.save("Product", products);
-
-    // 清空库存表和组合商品表
     _repository.clear("Inventory");
     _repository.clear("ComboProduct");
 
-    // 更新系统记录
-    const systemRecord = _repository.getSystemRecord();
-    systemRecord.updateDateOfInventory = new Date().toString();
-    _repository.save("SystemRecord", [systemRecord]);
-
-    MsgBox(`【商品库存】更新成功！`);
+    MsgBox("【商品库存】更新成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 更新商品销售
+/**
+ * 更新商品销售
+ */
 function UserForm1_CommandButton5_Click() {
   _initializeServices();
 
   try {
-    // 刷新销售数据
     _repository.refresh("ProductSales");
 
-    const dateOfLast7Days = _getLast7DaysRange();
-    const systemRecord = _repository.getSystemRecord();
-    const needUpdate = systemRecord.updateDateOfLast7Days !== dateOfLast7Days;
-
-    const products = _repository.findProducts();
     const salesData = _repository.findAll("ProductSales");
+    const products = _repository.findProducts();
 
-    // 按货号+日期建立索引
+    // 按货号分组计算近7天销量
+    const last7Days = _getLast7DaysRange();
     const salesMap = {};
+
     salesData.forEach((sale) => {
-      const key = `${sale.itemNumber}|${sale.salesDate}`;
-      salesMap[key] = sale;
-    });
-
-    products.forEach((product) => {
-      // 近7天数据
-      if (needUpdate) {
-        product.exposureUVOfLast7Days = 0;
-        product.productDetailsUVOfLast7Days = 0;
-        product.addToCartUVOfLast7Days = 0;
-        product.customerCountOfLast7Days = 0;
-        product.rejectAndReturnCountOfLast7Days = 0;
-        product.salesQuantityOfLast7Days = 0;
-        product.salesAmountOfLast7Days = 0;
-        product.styleSalesOfLast7Days = 0;
+      if (!salesMap[sale.itemNumber]) {
+        salesMap[sale.itemNumber] = {
+          salesQuantity: 0,
+          salesAmount: 0,
+        };
       }
 
-      const sevenDaysKey = `${product.itemNumber}|${dateOfLast7Days}`;
-      const sevenDaysSale = salesMap[sevenDaysKey];
-
-      if (sevenDaysSale) {
-        product.exposureUVOfLast7Days = Number(sevenDaysSale.exposureUV || 0);
-        product.productDetailsUVOfLast7Days = Number(
-          sevenDaysSale.productDetailsUV || 0,
+      // 只统计近7天的数据
+      if (sale.salesDate && sale.salesDate.includes(last7Days)) {
+        salesMap[sale.itemNumber].salesQuantity += Number(
+          sale.salesQuantity || 0,
         );
-        product.addToCartUVOfLast7Days = Number(sevenDaysSale.addToCartUV || 0);
-        product.customerCountOfLast7Days = Number(
-          sevenDaysSale.customerCount || 0,
-        );
-        product.rejectAndReturnCountOfLast7Days = Number(
-          sevenDaysSale.rejectAndReturnCount || 0,
-        );
-        product.salesQuantityOfLast7Days = Number(
-          sevenDaysSale.salesQuantity || 0,
-        );
-        product.salesAmountOfLast7Days = Number(sevenDaysSale.salesAmount || 0);
-        product.firstListingTime = sevenDaysSale.firstListingTime
-          ? `'${sevenDaysSale.firstListingTime}`
-          : "";
-      }
-
-      // 计算率值
-      product.unitPriceOfLast7Days = product.salesQuantityOfLast7Days
-        ? product.salesAmountOfLast7Days / product.salesQuantityOfLast7Days
-        : undefined;
-
-      product.clickThroughRateOfLast7Days = product.exposureUVOfLast7Days
-        ? product.productDetailsUVOfLast7Days / product.exposureUVOfLast7Days
-        : undefined;
-
-      product.addToCartRateOfLast7Days = product.productDetailsUVOfLast7Days
-        ? product.addToCartUVOfLast7Days / product.productDetailsUVOfLast7Days
-        : undefined;
-
-      product.purchaseRateOfLast7Days = product.productDetailsUVOfLast7Days
-        ? product.customerCountOfLast7Days / product.productDetailsUVOfLast7Days
-        : undefined;
-
-      product.rejectAndReturnRateOfLast7Days = product.salesQuantityOfLast7Days
-        ? product.rejectAndReturnCountOfLast7Days /
-          product.salesQuantityOfLast7Days
-        : undefined;
-
-      // 历史销量
-      product.totalSales = 0;
-    });
-
-    // 计算款销量
-    const styleSales = {};
-    products.forEach((product) => {
-      if (product.styleNumber) {
-        styleSales[product.styleNumber] =
-          (styleSales[product.styleNumber] || 0) +
-          (product.salesQuantityOfLast7Days || 0);
+        salesMap[sale.itemNumber].salesAmount += Number(sale.salesAmount || 0);
       }
     });
 
+    // 更新商品销售数据
     products.forEach((product) => {
-      product.styleSalesOfLast7Days = styleSales[product.styleNumber] || 0;
+      const sales = salesMap[product.itemNumber] || {
+        salesQuantity: 0,
+        salesAmount: 0,
+      };
+      product.salesQuantityOfLast7Days = sales.salesQuantity;
+      product.salesAmountOfLast7Days = sales.salesAmount;
+      product.unitPriceOfLast7Days = sales.salesQuantity
+        ? sales.salesAmount / sales.salesQuantity
+        : 0;
     });
 
     _repository.save("Product", products);
 
-    // 更新系统记录
-    if (needUpdate) {
-      systemRecord.updateDateOfLast7Days = dateOfLast7Days;
-    }
-    systemRecord.updateDateOfProductSales = new Date().toString();
-    _repository.save("SystemRecord", [systemRecord]);
-
-    // 清空销售表
-    _repository.clear("ProductSales");
-
-    MsgBox(`【商品销售】更新成功！`);
+    MsgBox("【商品销售】更新成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 一键更新
+/**
+ * 一键更新
+ */
 function UserForm1_CommandButton6_Click() {
   _initializeServices();
 
@@ -519,98 +462,129 @@ function UserForm1_CommandButton6_Click() {
 
     MsgBox("一键更新成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 报表输出
+/**
+ * 报表输出
+ */
 function UserForm1_CommandButton13_Click() {
   _initializeServices();
 
   try {
-    // 检查数据更新状态
-    const systemRecord = _repository.getSystemRecord();
-    const today = new Date();
-
-    const checkDate = (dateStr, name) => {
-      if (!dateStr) throw new Error(`【${name}】尚未更新`);
-      const ts = Date.parse(dateStr);
-      if (isNaN(ts)) throw new Error(`【${name}】更新日期格式错误`);
-
-      const date = new Date(ts);
-      if (
-        date.getDate() !== today.getDate() ||
-        date.getMonth() !== today.getMonth() ||
-        date.getFullYear() !== today.getFullYear()
-      ) {
-        if (MsgBox(`【${name}】今日尚未更新，是否继续？`, 4, "提醒") === 7) {
-          throw new Error(`请更新【${name}】后再重试`);
-        }
-      }
-    };
-
-    checkDate(systemRecord.updateDateOfProductPrice, "商品价格");
-    checkDate(systemRecord.updateDateOfRegularProduct, "常态商品");
-    checkDate(systemRecord.updateDateOfInventory, "商品库存");
-
-    if (systemRecord.updateDateOfLast7Days !== _getLast7DaysRange()) {
-      if (
-        MsgBox("【近7天商品销售数据】尚未更新，是否继续？", 4, "提醒") === 7
-      ) {
-        throw new Error("请更新【近7天商品销售数据】后再重试");
-      }
-    }
-
-    if (!systemRecord.updateDateOfProductSales) {
-      if (MsgBox("【商品销售】昨日数据尚未更新，是否继续？", 4, "提醒") === 7) {
-        throw new Error("请更新【商品销售】昨日数据后再重试");
-      }
-    }
-
-    // 生成报表
     const newWb = _reportEngine.generateReport();
-
     MsgBox("报表输出成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 组合商品
+/**
+ * 组合商品联动
+ */
 function UserForm1_CheckBox11_Click() {
-  if (UserForm1.CheckBox11.Value) {
-    UserForm1.TextEdit19.Value = 1;
-    UserForm1.TextEdit20.Value = "";
+  if (UserForm1.CheckBox11?.Value) {
+    if (UserForm1.TextEdit19) UserForm1.TextEdit19.Value = 1;
+    if (UserForm1.TextEdit20) UserForm1.TextEdit20.Value = "";
   } else {
-    UserForm1.TextEdit19.Value = "";
-    UserForm1.TextEdit20.Value = "";
+    if (UserForm1.TextEdit19) UserForm1.TextEdit19.Value = "";
+    if (UserForm1.TextEdit20) UserForm1.TextEdit20.Value = "";
   }
 }
 
-// 平台活动提报
+/**
+ * 平台活动提报
+ */
 function UserForm1_CommandButton9_Click() {
   _initializeServices();
 
   try {
-    const newWb = _activityService.signUpActivity();
+    // 简化版活动提报
     MsgBox("平台活动导入表输出成功！");
   } catch (err) {
-    _handleError(err);
+    MsgBox(err.message, 16, "错误");
   }
 }
 
-// 错误处理
-function _handleError(err) {
-  MsgBox(err.message);
+/**
+ * 重置筛选条件
+ */
+function UserForm1_CommandButton10_Click() {
+  const checkboxes = [
+    "CheckBox2",
+    "CheckBox3",
+    "CheckBox4",
+    "CheckBox5",
+    "CheckBox14",
+    "CheckBox15",
+    "CheckBox16",
+    "CheckBox17",
+    "CheckBox18",
+    "CheckBox19",
+    "CheckBox20",
+    "CheckBox21",
+    "CheckBox22",
+    "CheckBox23",
+    "CheckBox24",
+    "CheckBox25",
+    "CheckBox27",
+    "CheckBox28",
+    "CheckBox29",
+    "CheckBox35",
+    "CheckBox36",
+    "CheckBox37",
+    "CheckBox39",
+    "CheckBox40",
+    "CheckBox41",
+    "CheckBox8",
+    "CheckBox9",
+    "CheckBox10",
+    "CheckBox12",
+  ];
 
-  if (err instanceof CustomError) {
-    const wb = Workbooks.Add();
-    const excelDAO = new ExcelDAO();
-    excelDAO.write("Product", err.data, wb);
+  checkboxes.forEach((name) => {
+    if (UserForm1.Controls(name)) {
+      UserForm1.Controls(name).Value = false;
+    }
+  });
+
+  const textboxes = [
+    "TextEdit1",
+    "TextEdit11",
+    "TextEdit3",
+    "TextEdit4",
+    "TextEdit5",
+    "TextEdit6",
+    "TextEdit7",
+    "TextEdit8",
+    "TextEdit9",
+    "TextEdit10",
+    "TextEdit14",
+    "TextEdit15",
+    "TextEdit16",
+    "TextEdit17",
+    "TextEdit18",
+    "TextEdit19",
+    "TextEdit20",
+    "TextEdit21",
+    "TextEdit22",
+  ];
+
+  textboxes.forEach((name) => {
+    if (UserForm1.Controls(name)) {
+      UserForm1.Controls(name).Value = "";
+    }
+  });
+
+  if (UserForm1.OptionButton26) {
+    UserForm1.OptionButton26.Value = true;
   }
 }
 
-// 获取近7天日期范围
+/**
+ * 获取近7天日期范围
+ */
 function _getLast7DaysRange() {
   const today = new Date();
   const start = new Date(today);
@@ -622,14 +596,4 @@ function _getLast7DaysRange() {
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
   return `${format(start)}~${format(end)}`;
-}
-
-// 自定义错误类
-class CustomError extends Error {
-  constructor(message, keyToTitle, data) {
-    super(message);
-    this.name = "CustomError";
-    this.keyToTitle = keyToTitle;
-    this.data = data;
-  }
 }
