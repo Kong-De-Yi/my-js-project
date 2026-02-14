@@ -15,7 +15,7 @@ class ExcelDAO {
     try {
       // 1. 尝试获取当前活动工作簿
       const activeWb = ActiveWorkbook;
-      if (activeWb && activeWb.Name) {
+      if (activeWb?.Name) {
         // 验证文件名格式：必须包含"商品运营表"
         if (!activeWb.Name.includes("商品运营表")) {
           throw new Error(
@@ -99,7 +99,9 @@ class ExcelDAO {
 
     // 过滤空行
     data = data.filter(
-      (row) => row && row.some((cell) => cell !== null && cell !== ""),
+      (row) =>
+        row &&
+        row.some((cell) => cell != null && cell.toString().trim() !== ""),
     );
 
     if (data.length === 0) {
