@@ -1,8 +1,8 @@
 // ============================================================================
-// UI.js - 简化后的UI控制器
+// UI.js - UI控制器（增强版）
+// 功能：添加报表相关的UI事件
 // ============================================================================
 
-// 全局服务实例
 let _repository = null;
 let _excelDAO = null;
 let _dataImportService = null;
@@ -27,12 +27,11 @@ function _initializeServices() {
       _excelDAO,
     );
 
-    // 设置计算上下文
     _repository.setContext({
       profitCalculator: _profitCalculator,
     });
 
-    // 注册索引
+    // 注册所有索引
     _repository.registerIndexes("Product", indexConfig.getIndexes("Product"));
     _repository.registerIndexes(
       "ProductPrice",
@@ -54,13 +53,25 @@ function _initializeServices() {
       "ProductSales",
       indexConfig.getIndexes("ProductSales"),
     );
+    _repository.registerIndexes(
+      "BrandConfig",
+      indexConfig.getIndexes("BrandConfig"),
+    );
+    _repository.registerIndexes(
+      "ReportTemplate",
+      indexConfig.getIndexes("ReportTemplate"),
+    );
+
+    // 初始化报表模板
+    _reportEngine.initializeTemplates();
   } catch (e) {
     MsgBox(`系统初始化失败：${e.message}`, 0, "错误");
     throw e;
   }
 }
 
-// 更新常态商品
+// ========== 数据更新事件 ==========
+
 function UserForm1_CommandButton2_Click() {
   _initializeServices();
 
@@ -73,7 +84,6 @@ function UserForm1_CommandButton2_Click() {
   }
 }
 
-// 更新商品价格
 function UserForm1_CommandButton1_Click() {
   _initializeServices();
 
@@ -89,7 +99,6 @@ function UserForm1_CommandButton1_Click() {
   }
 }
 
-// 更新商品库存
 function UserForm1_CommandButton4_Click() {
   _initializeServices();
 
@@ -105,7 +114,6 @@ function UserForm1_CommandButton4_Click() {
   }
 }
 
-// 更新商品销售
 function UserForm1_CommandButton5_Click() {
   _initializeServices();
 
@@ -121,7 +129,6 @@ function UserForm1_CommandButton5_Click() {
   }
 }
 
-// 一键更新
 function UserForm1_CommandButton6_Click() {
   _initializeServices();
 
@@ -134,7 +141,8 @@ function UserForm1_CommandButton6_Click() {
   }
 }
 
-// 导入数据
+// ========== 数据导入事件 ==========
+
 function UserForm1_CommandButton15_Click() {
   _initializeServices();
 
@@ -146,16 +154,147 @@ function UserForm1_CommandButton15_Click() {
   }
 }
 
-// 报表输出
+// ========== 报表相关事件 ==========
+
+/**
+ * 报表输出（原按钮）
+ */
 function UserForm1_CommandButton13_Click() {
   _initializeServices();
 
   try {
-    const newWb = _reportEngine.generateReport();
-    MsgBox("报表输出成功！", 64, "成功");
+    _reportEngine.previewReport();
   } catch (err) {
     MsgBox(`报表生成失败：${err.message}`, 16, "错误");
   }
 }
 
-// ... 其他UI事件处理 ...
+/**
+ * 初始化报表模板
+ * 新增按钮：CommandButton25
+ */
+function UserForm1_CommandButton25_Click() {
+  _initializeServices();
+
+  try {
+    _reportEngine.initializeTemplates();
+    MsgBox("报表模板初始化成功！", 64, "成功");
+  } catch (err) {
+    MsgBox(`模板初始化失败：${err.message}`, 16, "错误");
+  }
+}
+
+/**
+ * 刷新报表模板（重新读取配置）
+ * 新增按钮：CommandButton26
+ */
+function UserForm1_CommandButton26_Click() {
+  _initializeServices();
+
+  try {
+    _reportEngine.refreshTemplates();
+    MsgBox("报表模板刷新成功！", 64, "成功");
+  } catch (err) {
+    MsgBox(`模板刷新失败：${err.message}`, 16, "错误");
+  }
+}
+
+/**
+ * 获取模板列表
+ * 新增：ComboBox7 - 模板选择下拉框
+ */
+function UserForm1_ComboBox7_DropButtonClick() {
+  _initializeServices();
+
+  try {
+    const templates = _reportEngine.getTemplateList();
+    UserForm1.ComboBox7.Clear();
+    templates.forEach((template) => {
+      UserForm1.ComboBox7.AddItem(template);
+    });
+  } catch (err) {
+    MsgBox(`获取模板列表失败：${err.message}`, 16, "错误");
+  }
+}
+
+/**
+ * 选择模板
+ */
+function UserForm1_ComboBox7_Change() {
+  _initializeServices();
+
+  const templateName = UserForm1.ComboBox7.Value;
+  if (templateName) {
+    try {
+      _reportEngine.setCurrentTemplate(templateName);
+    } catch (err) {
+      MsgBox(`选择模板失败：${err.message}`, 16, "错误");
+    }
+  }
+}
+
+/**
+ * 获取可用字段列表（用于调试/配置）
+ * 新增按钮：CommandButton27
+ */
+function UserForm1_CommandButton27_Click() {
+  _initializeServices();
+
+  try {
+    const fields = _reportEngine.getAvailableFields();
+
+    // 按分组显示字段
+    const groups = {};
+    fields.forEach((field) => {
+      const group = field.group || "其他";
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(`${field.field} - ${field.title}`);
+    });
+
+    let message = "可用的统计字段：\n\n";
+    Object.entries(groups).forEach(([group, fieldList]) => {
+      message += `【${group}】\n`;
+      fieldList.forEach((f) => {
+        message += `  ${f}\n`;
+      });
+      message += "\n";
+    });
+
+    MsgBox(message, 64, "可用字段列表");
+  } catch (err) {
+    MsgBox(`获取字段列表失败：${err.message}`, 16, "错误");
+  }
+}
+
+// ========== 活动提报事件 ==========
+
+function UserForm1_CommandButton3_Click() {
+  _initializeServices();
+
+  try {
+    const newWb = _activityService.signUpActivity();
+    newWb.Activate();
+    MsgBox("活动提报表生成成功！", 64, "成功");
+  } catch (err) {
+    MsgBox(`活动提报失败：${err.message}`, 16, "错误");
+  }
+}
+
+// ========== 表单初始化事件 ==========
+
+function UserForm1_Initialize() {
+  _initializeServices();
+
+  // 初始化模板下拉框
+  try {
+    const templates = _reportEngine.getTemplateList();
+    UserForm1.ComboBox7.Clear();
+    templates.forEach((template) => {
+      UserForm1.ComboBox7.AddItem(template);
+    });
+  } catch (err) {
+    // 忽略错误
+  }
+}

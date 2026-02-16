@@ -28,9 +28,6 @@ class EntityIdentifier {
       "RegularProduct", // 常态商品
       "ComboProduct", // 组合商品
       "Inventory", // 库存
-      "ProductPrice", // 商品价格
-      "BrandConfig", // 品牌配置
-      "ReportTemplate", // 报表模板
     ];
 
     for (const entityName of entityPriority) {
@@ -71,9 +68,6 @@ class EntityIdentifier {
       "RegularProduct",
       "ComboProduct",
       "Inventory",
-      "ProductPrice",
-      "BrandConfig",
-      "ReportTemplate",
     ];
     return importableEntities.includes(entityName);
   }
@@ -88,6 +82,3 @@ class EntityIdentifier {
     return appendEntities.includes(entityName) ? "append" : "overwrite";
   }
 }
-
-// 单例导出
-const entityIdentifier = new EntityIdentifier();

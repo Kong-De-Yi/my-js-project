@@ -1,7 +1,6 @@
 // ============================================================================
-// 报表模板管理器
+// ReportTemplateManager.js - 报表模板管理器
 // 功能：读取报表配置工作表中的模板和颜色设置
-// 特点：直接从Excel单元格读取背景色，无需额外配置
 // ============================================================================
 
 class ReportTemplateManager {
@@ -13,9 +12,6 @@ class ReportTemplateManager {
     this._currentTemplate = null;
   }
 
-  /**
-   * 初始化默认模板
-   */
   initializeDefaultTemplates() {
     const templates = this.loadTemplates();
 
@@ -23,7 +19,6 @@ class ReportTemplateManager {
       return templates;
     }
 
-    // 创建默认模板
     this._createDefaultTemplate("库存预警报表", [
       { field: "itemNumber", title: "货号", width: 15, order: 1 },
       { field: "styleNumber", title: "款号", width: 12, order: 2 },
@@ -45,12 +40,6 @@ class ReportTemplateManager {
       },
       { field: "totalInventory", title: "合计库存", width: 10, order: 9 },
       { field: "isOutOfStock", title: "是否断码", width: 10, order: 10 },
-      {
-        field: "salesQuantityOfLast7Days",
-        title: "近7天销量",
-        width: 10,
-        order: 11,
-      },
     ]);
 
     this._createDefaultTemplate("利润分析报表", [
@@ -66,34 +55,74 @@ class ReportTemplateManager {
       { field: "userOperations2", title: "中台2", width: 8, order: 10 },
     ]);
 
-    this._createDefaultTemplate("销售排行报表", [
+    this._createDefaultTemplate("销售分析报表", [
       { field: "itemNumber", title: "货号", width: 15, order: 1 },
       { field: "styleNumber", title: "款号", width: 12, order: 2 },
-      { field: "color", title: "颜色", width: 10, order: 3 },
-      { field: "thirdLevelCategory", title: "三级品类", width: 12, order: 4 },
       {
-        field: "salesQuantityOfLast7Days",
-        title: "近7天销量",
+        field: "yearSales_beforeLast",
+        title: "前年年销量",
         width: 12,
-        order: 5,
+        order: 3,
       },
+      { field: "yearSales_last", title: "去年年销量", width: 12, order: 4 },
+      { field: "yearSales_current", title: "今年年销量", width: 12, order: 5 },
       {
-        field: "salesAmountOfLast7Days",
-        title: "近7天销售额",
-        width: 12,
+        field: "monthSales_beforeLast",
+        title: "前年月销量",
+        width: 10,
         order: 6,
       },
-      { field: "unitPriceOfLast7Days", title: "件单价", width: 10, order: 7 },
-      { field: "styleSalesOfLast7Days", title: "款销量", width: 10, order: 8 },
-      { field: "totalSales", title: "销量总计", width: 10, order: 9 },
+      { field: "monthSales_last", title: "去年月销量", width: 10, order: 7 },
+      { field: "monthSales_current", title: "今年月销量", width: 10, order: 8 },
+      {
+        field: "weekSales_beforeLast",
+        title: "前年周销量",
+        width: 10,
+        order: 9,
+      },
+      { field: "weekSales_last", title: "去年周销量", width: 10, order: 10 },
+      { field: "weekSales_current", title: "今年周销量", width: 10, order: 11 },
+      {
+        field: "daySales_beforeLast",
+        title: "前年日销量",
+        width: 12,
+        order: 12,
+      },
+      { field: "daySales_last", title: "去年日销量", width: 12, order: 13 },
+      { field: "daySales_current", title: "今年日销量", width: 12, order: 14 },
+      { field: "sales_last7Days", title: "近7天销量", width: 12, order: 15 },
+      {
+        field: "uv_exposure_last7Days",
+        title: "近7天曝光UV",
+        width: 14,
+        order: 16,
+      },
+      {
+        field: "uv_productDetails_last7Days",
+        title: "近7天商详UV",
+        width: 14,
+        order: 17,
+      },
+      {
+        field: "uv_addToCart_last7Days",
+        title: "近7天加购UV",
+        width: 14,
+        order: 18,
+      },
+      {
+        field: "rejectCount_last7Days",
+        title: "近7天拒退件数",
+        width: 14,
+        order: 19,
+      },
+      { field: "sales_last15Days", title: "近15天销量", width: 10, order: 20 },
+      { field: "sales_last30Days", title: "近30天销量", width: 10, order: 21 },
+      { field: "sales_last45Days", title: "近45天销量", width: 10, order: 22 },
     ]);
 
     return this.loadTemplates();
   }
 
-  /**
-   * 创建默认模板
-   */
   _createDefaultTemplate(templateName, columns) {
     const templateData = [];
 
@@ -110,7 +139,6 @@ class ReportTemplateManager {
       });
     });
 
-    // 读取现有模板
     let existingTemplates = [];
     try {
       existingTemplates = this._repository.findAll("ReportTemplate");
@@ -118,7 +146,6 @@ class ReportTemplateManager {
       existingTemplates = [];
     }
 
-    // 过滤掉同名的旧模板
     const filtered = existingTemplates.filter(
       (t) => t.templateName !== templateName,
     );
@@ -127,9 +154,6 @@ class ReportTemplateManager {
     this._repository.save("ReportTemplate", allTemplates);
   }
 
-  /**
-   * 加载所有模板（包含颜色信息）
-   */
   loadTemplates() {
     if (this._templates) {
       return this._templates;
@@ -140,10 +164,12 @@ class ReportTemplateManager {
       const wb = this._excelDAO.getWorkbook();
       const sheet = wb.Sheets("报表配置");
 
-      // 读取标题行的颜色
-      const headerColors = excelColorReader.readHeaderColors(sheet, 1);
+      if (!templateItems || templateItems.length === 0) {
+        this._templates = new Map();
+        return this._templates;
+      }
 
-      // 按模板名称分组
+      const rowColors = this._readRowColors(sheet, templateItems);
       const templates = new Map();
 
       templateItems.forEach((item) => {
@@ -153,6 +179,9 @@ class ReportTemplateManager {
           templates.set(item.templateName, []);
         }
 
+        const key = `${item.templateName}|${item.fieldName}`;
+        const color = rowColors.get(key) || null;
+
         templates.get(item.templateName).push({
           field: item.fieldName,
           title: item.columnTitle || item.fieldName,
@@ -161,10 +190,10 @@ class ReportTemplateManager {
           order: item.displayOrder || 999,
           format: item.numberFormat || "",
           description: item.description || "",
+          color: color,
         });
       });
 
-      // 对每个模板的列按顺序排序
       templates.forEach((columns, name) => {
         templates.set(
           name,
@@ -172,94 +201,82 @@ class ReportTemplateManager {
         );
       });
 
-      // 存储颜色信息（每个模板可能有不同的颜色配置）
-      this._templateColors = new Map();
-
-      // 根据报表配置工作表的实际列位置，将颜色关联到模板
-      if (sheet) {
-        const usedRange = sheet.UsedRange;
-        if (usedRange) {
-          const data = usedRange.Value2;
-          if (data && data.length > 0) {
-            const headers = data[0];
-
-            // 找到各列的索引
-            const nameColIdx = headers.findIndex((h) =>
-              String(h).includes("模板名称"),
-            );
-            const fieldColIdx = headers.findIndex((h) =>
-              String(h).includes("字段"),
-            );
-
-            if (nameColIdx !== -1 && fieldColIdx !== -1) {
-              // 遍历每一行，记录每个模板的字段颜色
-              for (let i = 1; i < data.length; i++) {
-                const row = data[i];
-                if (!row || !row[nameColIdx]) continue;
-
-                const templateName = String(row[nameColIdx]).trim();
-                const fieldName = String(row[fieldColIdx] || "").trim();
-
-                if (!templateName || !fieldName) continue;
-
-                // 读取该行对应字段所在列的颜色
-                const cell = sheet.Cells(i + 1, fieldColIdx + 1);
-                const color = excelColorReader.getCellColor(cell);
-
-                if (color) {
-                  if (!this._templateColors.has(templateName)) {
-                    this._templateColors.set(templateName, new Map());
-                  }
-                  this._templateColors.get(templateName).set(fieldName, color);
-                }
-              }
-            }
-          }
-        }
-      }
-
       this._templates = templates;
       return templates;
     } catch (e) {
-      return new Map();
+      console.log("加载模板失败：", e.message);
+      this._templates = new Map();
+      return this._templates;
     }
   }
 
-  /**
-   * 获取模板的字段颜色
-   */
-  getFieldColor(templateName, fieldName) {
-    if (!this._templateColors) return null;
+  _readRowColors(sheet, templateItems) {
+    const colorMap = new Map();
 
-    const templateColors = this._templateColors.get(templateName);
-    return templateColors?.get(fieldName) || null;
+    try {
+      if (!sheet) return colorMap;
+
+      const usedRange = sheet.UsedRange;
+      if (!usedRange) return colorMap;
+
+      const data = usedRange.Value2;
+      if (!data || data.length < 2) return colorMap;
+
+      const headers = data[0];
+
+      let nameColIdx = -1;
+      let fieldColIdx = -1;
+      let colorColIdx = -1;
+
+      headers.forEach((header, idx) => {
+        const headerStr = String(header || "").trim();
+        if (headerStr.includes("模板名称")) {
+          nameColIdx = idx;
+        } else if (headerStr.includes("字段")) {
+          fieldColIdx = idx;
+        } else if (headerStr.includes("标题颜色")) {
+          colorColIdx = idx;
+        }
+      });
+
+      if (nameColIdx === -1 || fieldColIdx === -1 || colorColIdx === -1) {
+        return colorMap;
+      }
+
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row) continue;
+
+        const templateName = String(row[nameColIdx] || "").trim();
+        const fieldName = String(row[fieldColIdx] || "").trim();
+
+        if (!templateName || !fieldName) continue;
+
+        const cell = sheet.Cells(i + 1, colorColIdx + 1);
+        const color = excelColorReader.getCellColor(cell);
+
+        if (color) {
+          const key = `${templateName}|${fieldName}`;
+          colorMap.set(key, color);
+        }
+      }
+    } catch (e) {
+      console.log("读取标题颜色失败：", e.message);
+    }
+
+    return colorMap;
   }
 
-  /**
-   * 获取模板列表
-   */
   getTemplateList() {
     const templates = this.loadTemplates();
     return Array.from(templates.keys()).sort();
   }
 
-  /**
-   * 获取模板配置
-   */
   getTemplate(templateName) {
     const templates = this.loadTemplates();
-    const columns = templates.get(templateName) || [];
-
-    // 为每列附加颜色信息
-    return columns.map((col) => ({
-      ...col,
-      color: this.getFieldColor(templateName, col.field),
-    }));
+    return templates.get(templateName) || [];
   }
 
-  /**
-   * 设置当前模板
-   */
   setCurrentTemplate(templateName) {
     if (templateName && this.loadTemplates().has(templateName)) {
       this._currentTemplate = templateName;
@@ -268,16 +285,10 @@ class ReportTemplateManager {
     return false;
   }
 
-  /**
-   * 获取当前模板
-   */
   getCurrentTemplate() {
     return this._currentTemplate;
   }
 
-  /**
-   * 获取当前模板的列配置
-   */
   getCurrentColumns() {
     if (!this._currentTemplate) {
       return this._getDefaultColumns();
@@ -291,9 +302,6 @@ class ReportTemplateManager {
     return columns;
   }
 
-  /**
-   * 获取默认列配置
-   */
   _getDefaultColumns() {
     return [
       {
@@ -302,6 +310,7 @@ class ReportTemplateManager {
         width: 15,
         visible: true,
         order: 1,
+        color: 15773696,
       },
       {
         field: "styleNumber",
@@ -309,14 +318,23 @@ class ReportTemplateManager {
         width: 12,
         visible: true,
         order: 2,
+        color: 15773696,
       },
-      { field: "color", title: "颜色", width: 10, visible: true, order: 3 },
+      {
+        field: "color",
+        title: "颜色",
+        width: 10,
+        visible: true,
+        order: 3,
+        color: 15773696,
+      },
       {
         field: "thirdLevelCategory",
         title: "三级品类",
         width: 12,
         visible: true,
         order: 4,
+        color: 15773696,
       },
       {
         field: "firstListingTime",
@@ -324,6 +342,7 @@ class ReportTemplateManager {
         width: 12,
         visible: true,
         order: 5,
+        color: 13434879,
       },
       {
         field: "itemStatus",
@@ -331,6 +350,7 @@ class ReportTemplateManager {
         width: 10,
         visible: true,
         order: 6,
+        color: 13434879,
       },
       {
         field: "costPrice",
@@ -338,6 +358,7 @@ class ReportTemplateManager {
         width: 10,
         visible: true,
         order: 7,
+        color: 10092543,
       },
       {
         field: "silverPrice",
@@ -345,6 +366,7 @@ class ReportTemplateManager {
         width: 10,
         visible: true,
         order: 8,
+        color: 10092543,
       },
       {
         field: "finalPrice",
@@ -352,6 +374,7 @@ class ReportTemplateManager {
         width: 10,
         visible: true,
         order: 9,
+        color: 10092543,
       },
       {
         field: "sellableInventory",
@@ -359,16 +382,13 @@ class ReportTemplateManager {
         width: 10,
         visible: true,
         order: 10,
+        color: 10079487,
       },
     ];
   }
 
-  /**
-   * 刷新模板
-   */
   refresh() {
     this._templates = null;
-    this._templateColors = null;
     return this.loadTemplates();
   }
 }

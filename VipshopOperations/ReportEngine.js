@@ -1,18 +1,73 @@
 // ============================================================================
-// 报表引擎
-// 功能：根据模板配置生成报表，支持列背景色
+// ReportEngine.js - 报表引擎（支持字段展开）
+// 功能：根据模板配置生成报表，支持字段自动展开
 // ============================================================================
 
 class ReportEngine {
+  /**
+   * 构造函数
+   * @param {Object} repository - 数据仓库实例
+   * @param {Object} excelDAO - Excel数据访问对象
+   */
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
     this._config = dataConfig;
     this._templateManager = new ReportTemplateManager(repository, excelDAO);
+
+    // 初始化销售统计服务
+    this._salesStatisticsService = new SalesStatisticsService(repository);
+    this._salesStatisticsFields = new SalesStatisticsFields(
+      this._salesStatisticsService,
+    );
+
+    // 缓存所有统计字段配置
+    this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
+  }
+
+  /**
+   * 构建统计字段映射（包含展开逻辑）
+   * @returns {Map} 字段名到字段配置的映射
+   * @private
+   */
+  _buildStatisticsFieldsMap() {
+    const map = new Map();
+    const baseFields = this._salesStatisticsFields.getAllFields();
+
+    // 展开所有可展开字段
+    baseFields.forEach((field) => {
+      if (field.type === "expandable") {
+        const expanded = this._salesStatisticsFields.expandField(field);
+        expanded.forEach((expandedField) => {
+          map.set(expandedField.field, expandedField);
+        });
+      } else {
+        map.set(field.field, field);
+      }
+    });
+
+    return map;
+  }
+
+  /**
+   * 获取所有可用的字段（用于模板配置）
+   * @returns {Array} 字段配置数组
+   */
+  getAvailableFields() {
+    const baseFields = this._salesStatisticsFields.getAllFields();
+
+    return baseFields.map((field) => ({
+      field: field.field,
+      title: field.title,
+      type: field.type,
+      group: field.group,
+      description: field.description,
+    }));
   }
 
   /**
    * 初始化模板
+   * @returns {Map} 初始化后的模板列表
    */
   initializeTemplates() {
     return this._templateManager.initializeDefaultTemplates();
@@ -20,6 +75,7 @@ class ReportEngine {
 
   /**
    * 获取模板列表
+   * @returns {Array} 模板名称数组
    */
   getTemplateList() {
     return this._templateManager.getTemplateList();
@@ -27,6 +83,8 @@ class ReportEngine {
 
   /**
    * 设置当前模板
+   * @param {string} templateName - 模板名称
+   * @returns {boolean} 是否设置成功
    */
   setCurrentTemplate(templateName) {
     return this._templateManager.setCurrentTemplate(templateName);
@@ -34,6 +92,7 @@ class ReportEngine {
 
   /**
    * 获取当前模板
+   * @returns {string|null} 当前模板名称
    */
   getCurrentTemplate() {
     return this._templateManager.getCurrentTemplate();
@@ -41,13 +100,19 @@ class ReportEngine {
 
   /**
    * 刷新模板
+   * @returns {Map} 刷新后的模板列表
    */
   refreshTemplates() {
-    return this._templateManager.refresh();
+    this._templateManager.refresh();
+    // 重新构建字段映射（因为时间变化）
+    this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
+    return this._templateManager.loadTemplates();
   }
 
   /**
    * 从UI获取筛选条件
+   * @returns {Object} 查询条件对象
+   * @private
    */
   _buildQueryFromUI() {
     const query = {};
@@ -142,6 +207,10 @@ class ReportEngine {
 
   /**
    * 应用筛选条件
+   * @param {Array} products - 商品数据
+   * @param {Object} query - 查询条件
+   * @returns {Array} 筛选后的数据
+   * @private
    */
   _applyQuery(products, query) {
     if (Object.keys(query).length === 0) {
@@ -150,7 +219,6 @@ class ReportEngine {
 
     return products.filter((product) => {
       return Object.entries(query).every(([key, condition]) => {
-        // 数组条件（多选）
         if (Array.isArray(condition)) {
           if (key === "offlineReason") {
             return (
@@ -161,7 +229,6 @@ class ReportEngine {
           return condition.includes(product[key]);
         }
 
-        // 范围条件
         if (Array.isArray(condition) && condition.length === 2) {
           const [min, max] = condition;
           const value = product[key];
@@ -178,7 +245,6 @@ class ReportEngine {
           return true;
         }
 
-        // 精确匹配
         return product[key] === condition;
       });
     });
@@ -186,6 +252,11 @@ class ReportEngine {
 
   /**
    * 应用排序
+   * @param {Array} products - 商品数据
+   * @param {string} sortField - 排序字段
+   * @param {boolean} sortAscending - 是否升序
+   * @returns {Array} 排序后的数据
+   * @private
    */
   _applySort(products, sortField, sortAscending) {
     if (!sortField) return products;
@@ -213,16 +284,66 @@ class ReportEngine {
   }
 
   /**
+   * 获取字段值（支持统计字段）
+   * @param {Object} product - 商品对象
+   * @param {Object} column - 列配置
+   * @returns {*} 字段值
+   * @private
+   */
+  _getFieldValue(product, column) {
+    const field = column.field;
+
+    if (this._statisticsFieldsMap.has(field)) {
+      const statField = this._statisticsFieldsMap.get(field);
+      try {
+        return statField.compute(product);
+      } catch (e) {
+        console.log(`计算统计字段 ${field} 失败：`, e.message);
+        return 0;
+      }
+    }
+
+    return product[field];
+  }
+
+  /**
    * 生成报表
+   * @returns {Object} 生成的工作簿对象
    */
   generateReport() {
-    // 1. 获取当前模板的列配置
-    const columns = this._templateManager.getCurrentColumns();
+    // ----- 1. 获取当前模板的列配置 -----
+    let columns = this._templateManager.getCurrentColumns();
 
-    // 2. 获取筛选条件
+    // ----- 2. 展开所有可展开字段 -----
+    const expandedColumns = [];
+    columns.forEach((col) => {
+      if (this._statisticsFieldsMap.has(col.field)) {
+        const statField = this._statisticsFieldsMap.get(col.field);
+        if (statField.type === "expandable") {
+          // 找到所有展开的子字段
+          const expanded = this._salesStatisticsFields.expandField(statField);
+          expanded.forEach((exp) => {
+            expandedColumns.push({
+              ...col,
+              field: exp.field,
+              title: exp.title,
+              width: exp.width || col.width,
+              format: exp.format || col.format,
+              color: col.color, // 保留标题颜色
+            });
+          });
+        } else {
+          expandedColumns.push(col);
+        }
+      } else {
+        expandedColumns.push(col);
+      }
+    });
+
+    // ----- 3. 获取筛选条件 -----
     const query = this._buildQueryFromUI();
 
-    // 3. 获取分组字段
+    // ----- 4. 获取分组字段 -----
     let groupBy = null;
     if (UserForm1.ComboBox4?.Value) {
       const groupMap = {
@@ -235,7 +356,7 @@ class ReportEngine {
       groupBy = groupMap[UserForm1.ComboBox4.Value];
     }
 
-    // 4. 获取排序字段
+    // ----- 5. 获取排序字段 -----
     let sortField = null;
     let sortAscending = true;
     if (UserForm1.ComboBox6?.Value) {
@@ -245,34 +366,36 @@ class ReportEngine {
         白金价: "silverPrice",
         利润: "profit",
         利润率: "profitRate",
-        近7天销售量: "salesQuantityOfLast7Days",
+        近7天销售量: "sales_last7Days",
         可售库存: "sellableInventory",
         可售天数: "sellableDays",
         合计库存: "totalInventory",
         销量总计: "totalSales",
       };
       sortField = sortMap[UserForm1.ComboBox6.Value];
-      sortAscending = UserForm1.OptionButton26?.Value; // true:升序
+      sortAscending = UserForm1.OptionButton26?.Value;
     }
 
-    // 5. 获取所有商品数据
+    // ----- 6. 获取所有商品数据 -----
     let products = this._repository.findProducts();
 
-    // 6. 应用筛选
+    // ----- 7. 应用筛选 -----
     products = this._applyQuery(products, query);
 
-    // 7. 应用排序
+    // ----- 8. 应用排序 -----
     products = this._applySort(products, sortField, sortAscending);
 
-    // 8. 创建新工作簿
+    // ----- 9. 创建新工作簿 -----
     const sourceWb = this._excelDAO.getWorkbook();
     sourceWb.Sheets(this._config.get("Product").worksheet).Copy();
     const newWb = ActiveWorkbook;
 
-    // 9. 获取可见列
-    const visibleColumns = columns.filter((col) => col.visible !== false);
+    // ----- 10. 获取可见列 -----
+    const visibleColumns = expandedColumns.filter(
+      (col) => col.visible !== false,
+    );
 
-    // 10. 按分组输出
+    // ----- 11. 按分组输出 -----
     if (groupBy) {
       const groups = {};
 
@@ -307,21 +430,24 @@ class ReportEngine {
       this._writeReportSheet(sheet, products, visibleColumns);
     }
 
-    // 11. 删除原始工作表
+    // ----- 12. 删除原始工作表 -----
     try {
       newWb.Sheets(this._config.get("Product").worksheet).Delete();
     } catch (e) {
-      // 忽略
+      // 忽略删除错误
     }
 
     return newWb;
   }
 
   /**
-   * 写入报表工作表（支持颜色）
+   * 写入报表工作表
+   * @param {Object} sheet - Excel工作表
+   * @param {Array} products - 商品数据
+   * @param {Array} columns - 列配置数组
+   * @private
    */
   _writeReportSheet(sheet, products, columns) {
-    // 构建输出数据
     const outputData = [];
 
     // 标题行
@@ -330,7 +456,7 @@ class ReportEngine {
     // 数据行
     products.forEach((product) => {
       const row = columns.map((col) => {
-        let value = product[col.field];
+        let value = this._getFieldValue(product, col);
 
         if (typeof value === "number") {
           if (col.field.includes("Rate") || col.field.includes("率")) {
@@ -345,7 +471,6 @@ class ReportEngine {
       outputData.push(row);
     });
 
-    // 清空并写入
     sheet.Cells.ClearContents();
 
     if (outputData.length > 0) {
@@ -354,22 +479,38 @@ class ReportEngine {
         .Resize(outputData.length, outputData[0].length);
       range.Value2 = outputData;
 
-      // 设置列宽和应用颜色
       columns.forEach((col, index) => {
-        const column = sheet.Columns(index + 1);
+        const columnIndex = index + 1;
+        const column = sheet.Columns(columnIndex);
+
         column.ColumnWidth = col.width || 10;
 
-        // 应用标题颜色
-        if (col.color) {
-          const headerCell = sheet.Cells(1, index + 1);
-          excelColorReader.applyColorToRange(headerCell, col.color);
-        }
-
-        // 应用数字格式
         if (col.format) {
           column.NumberFormat = col.format;
         }
+
+        if (col.color) {
+          const headerCell = sheet.Cells(1, columnIndex);
+          excelColorReader.applyColorToRange(headerCell, col.color);
+        }
       });
+
+      const headerRange = sheet.Rows("1:1");
+      headerRange.Font.Bold = true;
+      headerRange.RowHeight = 20;
+    }
+  }
+
+  /**
+   * 预览报表
+   */
+  previewReport() {
+    try {
+      const wb = this.generateReport();
+      wb.Activate();
+      MsgBox("报表生成成功！", 64, "成功");
+    } catch (e) {
+      MsgBox("报表生成失败：" + e.message, 16, "错误");
     }
   }
 }
