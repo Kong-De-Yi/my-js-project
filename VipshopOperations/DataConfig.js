@@ -509,7 +509,7 @@ class DataConfig {
     // ========== 2. 商品价格实体 ==========
     this.PRODUCT_PRICE = {
       worksheet: "商品价格",
-      requiredFields: ["itemNumber"],
+
       uniqueKey: "itemNumber",
       fields: {
         designNumber: { title: "设计号", type: "string" },
@@ -550,7 +550,24 @@ class DataConfig {
     // ========== 3. 常态商品实体 ==========
     this.REGULAR_PRODUCT = {
       worksheet: "常态商品",
-      requiredFields: ["productCode", "itemNumber"],
+      requiredFields: [
+        "productCode",
+        "itemNumber",
+        "styleNumber",
+        "color",
+        "size",
+        "thirdLevelCategory",
+        "brandSN",
+        "sizeStatus",
+        "itemStatus",
+        "tagPrice",
+        "vipshopPrice",
+        "finalPrice",
+        "sellableInventory",
+        "sellableDays",
+        "MID",
+        "P_SPU",
+      ],
       uniqueKey: "productCode",
       fields: {
         productCode: {
@@ -581,7 +598,68 @@ class DataConfig {
         thirdLevelCategory: {
           title: "三级品类",
           type: "string",
-          validators: [{ type: "required" }],
+          validators: [
+            { type: "required" },
+            {
+              type: "enum",
+              params: {
+                values: [
+                  "儿童文胸",
+                  "儿童配饰配件",
+                  "儿童礼服/演出服",
+                  "儿童羽绒服",
+                  "儿童棉服",
+                  "儿童外套/夹克/风衣",
+                  "儿童防晒服/皮肤衣",
+                  "儿童毛衣/线衫",
+                  "儿童套装",
+                  "儿童卫衣",
+                  "儿童T恤/POLO衫",
+                  "儿童背心",
+                  "儿童衬衫",
+                  "儿童马甲",
+                  "儿童裙子",
+                  "儿童旗袍/汉服",
+                  "儿童披肩/斗篷",
+                  "儿童裤子",
+                  "儿童保暖内衣/套装",
+                  "儿童睡衣家居服",
+                  "儿童内裤",
+                  "儿童打底裤/连袜裤",
+                  "儿童袜子",
+                  "儿童雨衣/雨具",
+                  "儿童泳装泳具",
+                  "反穿衣/画画衣",
+                  "儿童冲锋衣",
+                  "儿童户外服",
+                  "婴幼T恤",
+                  "婴幼衬衫",
+                  "婴幼家居服",
+                  "婴幼内衣内裤",
+                  "婴幼羽绒服",
+                  "婴幼棉服",
+                  "婴幼披风/斗篷",
+                  "肚兜/肚围/护脐带",
+                  "婴幼套装",
+                  "哈衣/爬服/连体服",
+                  "婴幼裤子",
+                  "婴幼裙子",
+                  "婴幼外套/风衣",
+                  "婴幼毛衣/线衫",
+                  "婴幼背心/马甲",
+                  "婴幼卫衣/运动服",
+                  "婴儿服饰礼盒",
+                  "婴儿袜子",
+                  "婴幼配饰",
+                  "婴幼抱被/抱毯",
+                  "婴幼泳装泳具",
+                  "婴幼防晒服/皮肤衣",
+                  "婴幼礼服/演出服",
+                  "婴幼旗袍/汉服",
+                ],
+              },
+            },
+          ],
         },
         brandSN: {
           title: "品牌SN",
@@ -633,9 +711,10 @@ class DataConfig {
           validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         MID: {
-          title: "MID",
+          title: "商品ID",
           type: "string",
           validators: [
+            { type: "required" },
             {
               type: "pattern",
               params: { regex: /^69\d{17}$/, description: "69开头的19位数字" },
@@ -646,6 +725,7 @@ class DataConfig {
           title: "P_SPU",
           type: "string",
           validators: [
+            { type: "required" },
             {
               type: "pattern",
               params: {
@@ -661,7 +741,16 @@ class DataConfig {
     // ========== 4. 库存实体 ==========
     this.INVENTORY = {
       worksheet: "商品库存",
-      requiredFields: ["productCode"],
+      requiredFields: [
+        "productCode",
+        "mainInventory",
+        "incomingInventory",
+        "finishingInventory",
+        "oversoldInventory",
+        "prepareInventory",
+        "returnInventory",
+        "purchaseInventory",
+      ],
       uniqueKey: "productCode",
       fields: {
         productCode: {
@@ -672,37 +761,37 @@ class DataConfig {
         mainInventory: {
           title: "数量",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         incomingInventory: {
           title: "进货仓库存",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         finishingInventory: {
           title: "后整车间",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         oversoldInventory: {
           title: "超卖车间",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         prepareInventory: {
           title: "备货车间",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         returnInventory: {
           title: "销退仓库存",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         purchaseInventory: {
           title: "采购在途数",
           type: "number",
-          validators: [{ type: "nonNegative" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
       },
     };
@@ -710,10 +799,10 @@ class DataConfig {
     // ========== 5. 组合商品实体 ==========
     this.COMBO_PRODUCT = {
       worksheet: "组合商品",
-      requiredFields: ["productCode", "subProductCode"],
+      requiredFields: ["productCode", "subProductCode", "subProductQuantity"],
       uniqueKey: {
         fields: ["productCode", "subProductCode"],
-        message: "组合商品编码与子商品编码组合必须唯一",
+        message: "组合商品实体编码与子商品编码组合必须唯一",
       },
       fields: {
         productCode: {
@@ -740,7 +829,18 @@ class DataConfig {
     // ========== 6. 商品销售实体（增强版 - 添加索引字段）==========
     this.PRODUCT_SALES = {
       worksheet: "商品销售",
-      requiredFields: ["salesDate", "itemNumber"],
+      requiredFields: [
+        "salesDate",
+        "itemNumber",
+        "exposureUV",
+        "productDetailsUV",
+        "addToCartUV",
+        "customerCount",
+        "rejectAndReturnCount",
+        "salesQuantity",
+        "salesAmount",
+        "firstListingTime",
+      ],
       uniqueKey: {
         fields: ["itemNumber", "salesDate"],
         message: "同一货号同一天的销售数据只能有一条",
@@ -750,17 +850,53 @@ class DataConfig {
         salesDate: {
           title: "日期",
           type: "string",
-          validators: [{ type: "date" }],
+          validators: [{ type: "required" }, { type: "date" }],
         },
-        itemNumber: { title: "货号", type: "string" },
-        exposureUV: { title: "曝光UV", type: "number" },
-        productDetailsUV: { title: "商详UV", type: "number" },
-        addToCartUV: { title: "加购UV", type: "number" },
-        customerCount: { title: "客户数", type: "number" },
-        rejectAndReturnCount: { title: "拒退件数", type: "number" },
-        salesQuantity: { title: "销售量", type: "number" },
-        salesAmount: { title: "销售额", type: "number" },
-        firstListingTime: { title: "首次上架时间", type: "string" },
+        itemNumber: {
+          title: "货号",
+          type: "string",
+          validators: [{ type: "required" }],
+        },
+        exposureUV: {
+          title: "曝光UV",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        productDetailsUV: {
+          title: "商详UV",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        addToCartUV: {
+          title: "加购UV",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        customerCount: {
+          title: "客户数",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        rejectAndReturnCount: {
+          title: "拒退件数",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        salesQuantity: {
+          title: "销售量",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        salesAmount: {
+          title: "销售额",
+          type: "number",
+          validators: [{ type: "required" }],
+        },
+        firstListingTime: {
+          title: "首次上架时间",
+          type: "string",
+          validators: [{ type: "required" }, { type: "date" }],
+        },
 
         // ========== 索引字段（计算字段，用于快速查询）==========
 
@@ -770,72 +906,75 @@ class DataConfig {
          */
         salesYear: {
           title: "所属年份",
-          type: "computed",
-          description: "从销售日期中提取年份，用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            return date ? date.getFullYear() : undefined;
-          },
+          type: "string",
+          validators: [{ type: "required" }],
+          // description: "从销售日期中提取年份，用于快速筛选",
+          // compute: (obj) => {
+          //   if (!obj.salesDate) return undefined;
+          //   const date = validationEngine.parseDate(obj.salesDate);
+          //   return date ? date.getFullYear() : undefined;
+          // },
         },
 
         /**
          * 所属月份
          * 用途：快速筛选某月的销售数据
          */
-        salesMonth: {
-          title: "所属月份",
-          type: "computed",
-          description: "从销售日期中提取月份（1-12），用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            return date ? date.getMonth() + 1 : undefined;
-          },
-        },
+        // salesMonth: {
+        //   title: "所属月份",
+        //   type: "string",
+        //   validators: [{ type: "required" }, { type: "month" }],
+        // description: "从销售日期中提取月份（1-12），用于快速筛选",
+        // compute: (obj) => {
+        //   if (!obj.salesDate) return undefined;
+        //   const date = validationEngine.parseDate(obj.salesDate);
+        //   return date ? date.getMonth() + 1 : undefined;
+        // },
+        // },
 
         /**
          * 所属年份的第几周
          * 用途：快速筛选某周的销售数据
          */
-        salesWeekOfYear: {
-          title: "所属周数",
-          type: "computed",
-          description: "ISO周数（1-53），用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return undefined;
+        // salesWeekOfYear: {
+        //   title: "所属周数",
+        //   type: "string",
+        //   validators: [{ type: "required" }, { type: "week" }],
+        // description: "ISO周数（1-53），用于快速筛选",
+        // compute: (obj) => {
+        //   if (!obj.salesDate) return undefined;
+        //   const date = validationEngine.parseDate(obj.salesDate);
+        //   if (!date) return undefined;
 
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
-            d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-            const week1 = new Date(d.getFullYear(), 0, 4);
-            const weekNum =
-              1 +
-              Math.round(
-                ((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
-              );
-            return weekNum;
-          },
-        },
+        //   const d = new Date(date);
+        //   d.setHours(0, 0, 0, 0);
+        //   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+        //   const week1 = new Date(d.getFullYear(), 0, 4);
+        //   const weekNum =
+        //     1 +
+        //     Math.round(
+        //       ((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+        //     );
+        //   return weekNum;
+        // },
+        // },
 
         /**
          * 所属季度
          * 用途：快速筛选某季度的销售数据
          */
-        salesQuarter: {
-          title: "所属季度",
-          type: "computed",
-          description: "季度（1-4），用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return undefined;
-            const month = date.getMonth() + 1;
-            return Math.ceil(month / 3);
-          },
-        },
+        // salesQuarter: {
+        //   title: "所属季度",
+        //   type: "computed",
+        //   description: "季度（1-4），用于快速筛选",
+        //   compute: (obj) => {
+        //     if (!obj.salesDate) return undefined;
+        //     const date = validationEngine.parseDate(obj.salesDate);
+        //     if (!date) return undefined;
+        //     const month = date.getMonth() + 1;
+        //     return Math.ceil(month / 3);
+        //   },
+        // },
 
         /**
          * 年月组合
@@ -844,16 +983,17 @@ class DataConfig {
          */
         yearMonth: {
           title: "年月",
-          type: "computed",
-          description: "年月组合（YYYY-MM），用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return undefined;
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, "0");
-            return `${year}-${month}`;
-          },
+          type: "string",
+          validators: [{ type: "required" }],
+          // description: "年月组合（YYYY-MM），用于快速筛选",
+          // compute: (obj) => {
+          //   if (!obj.salesDate) return undefined;
+          //   const date = validationEngine.parseDate(obj.salesDate);
+          //   if (!date) return undefined;
+          //   const year = date.getFullYear();
+          //   const month = String(date.getMonth() + 1).padStart(2, "0");
+          //   return `${year}-${month}`;
+          // },
         },
 
         /**
@@ -863,134 +1003,133 @@ class DataConfig {
          */
         yearWeek: {
           title: "年周",
-          type: "computed",
-          description: "年周组合（YYYY-WW），用于快速筛选",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return undefined;
-            const year = date.getFullYear();
-            const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
-            return `${year}-${week}`;
-          },
+          type: "string",
+          validators: [{ type: "required" }],
+          // description: "年周组合（YYYY-WW），用于快速筛选",
+          // compute: (obj) => {
+          //   if (!obj.salesDate) return undefined;
+          //   const date = validationEngine.parseDate(obj.salesDate);
+          //   if (!date) return undefined;
+          //   const year = date.getFullYear();
+          //   const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
+          //   return `${year}-${week}`;
+          // },
         },
 
         /**
          * 是否为今年
          */
-        isCurrentYear: {
-          title: "是否今年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear;
-          },
-        },
+        // isCurrentYear: {
+        //   title: "是否今年",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesYear) return false;
+        //     const currentYear = new Date().getFullYear();
+        //     return obj.salesYear === currentYear;
+        //   },
+        // },
 
         /**
          * 是否为去年
          */
-        isLastYear: {
-          title: "是否去年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear - 1;
-          },
-        },
+        // isLastYear: {
+        //   title: "是否去年",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesYear) return false;
+        //     const currentYear = new Date().getFullYear();
+        //     return obj.salesYear === currentYear - 1;
+        //   },
+        // },
 
         /**
          * 是否为前年
          */
-        isYearBeforeLast: {
-          title: "是否前年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear - 2;
-          },
-        },
+        // isYearBeforeLast: {
+        //   title: "是否前年",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesYear) return false;
+        //     const currentYear = new Date().getFullYear();
+        //     return obj.salesYear === currentYear - 2;
+        //   },
+        // },
 
         /**
          * 是否为本月
          */
-        isCurrentMonth: {
-          title: "是否本月",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesDate) return false;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return false;
-            const today = new Date();
-            return (
-              date.getFullYear() === today.getFullYear() &&
-              date.getMonth() === today.getMonth()
-            );
-          },
-        },
+        // isCurrentMonth: {
+        //   title: "是否本月",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesDate) return false;
+        //     const date = validationEngine.parseDate(obj.salesDate);
+        //     if (!date) return false;
+        //     const today = new Date();
+        //     return (
+        //       date.getFullYear() === today.getFullYear() &&
+        //       date.getMonth() === today.getMonth()
+        //     );
+        //   },
+        // },
 
         /**
          * 是否为上周
          */
-        isLastWeek: {
-          title: "是否上周",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesDate) return false;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return false;
+        // isLastWeek: {
+        //   title: "是否上周",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesDate) return false;
+        //     const date = validationEngine.parseDate(obj.salesDate);
+        //     if (!date) return false;
 
-            const today = new Date();
-            const lastWeekStart = new Date(today);
-            lastWeekStart.setDate(today.getDate() - today.getDay() - 6);
-            lastWeekStart.setHours(0, 0, 0, 0);
+        //     const today = new Date();
+        //     const lastWeekStart = new Date(today);
+        //     lastWeekStart.setDate(today.getDate() - today.getDay() - 6);
+        //     lastWeekStart.setHours(0, 0, 0, 0);
 
-            const lastWeekEnd = new Date(lastWeekStart);
-            lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-            lastWeekEnd.setHours(23, 59, 59, 999);
+        //     const lastWeekEnd = new Date(lastWeekStart);
+        //     lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+        //     lastWeekEnd.setHours(23, 59, 59, 999);
 
-            return date >= lastWeekStart && date <= lastWeekEnd;
-          },
-        },
+        //     return date >= lastWeekStart && date <= lastWeekEnd;
+        //   },
+        // },
 
         /**
          * 距今天数
          * 用途：快速筛选最近N天的数据
          */
-        daysSinceSale: {
-          title: "距今天数",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return undefined;
+        // daysSinceSale: {
+        //   title: "距今天数",
+        //   type: "computed",
+        //   compute: (obj) => {
+        //     if (!obj.salesDate) return undefined;
+        //     const date = validationEngine.parseDate(obj.salesDate);
+        //     if (!date) return undefined;
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            date.setHours(0, 0, 0, 0);
+        //     const today = new Date();
+        //     today.setHours(0, 0, 0, 0);
+        //     date.setHours(0, 0, 0, 0);
 
-            const diffTime = today - date;
-            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          },
-        },
+        //     const diffTime = today - date;
+        //     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        //   },
+        // },
       },
     };
 
     // ========== 7. 系统记录实体 ==========
     this.SYSTEM_RECORD = {
       worksheet: "系统记录",
-      uniqueKey: "recordId",
       fields: {
-        recordId: { title: "记录ID", type: "string", persist: false },
-        updateDateOfLast7Days: { title: "近7天数据更新日期", type: "string" },
         updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
         updateDateOfRegularProduct: {
           title: "常态商品更新日期",
           type: "string",
         },
+        updateDateOfComboProduct: { title: "组合商品更新日期", type: "string" },
         updateDateOfInventory: { title: "商品库存更新日期", type: "string" },
         updateDateOfProductSales: { title: "商品销售更新日期", type: "string" },
       },
@@ -1007,7 +1146,7 @@ class DataConfig {
         shippingCost: { title: "运费", type: "number" },
         returnProcessingFee: { title: "退货整理费", type: "number" },
         vipDiscountRate: { title: "超V折扣率", type: "number" },
-        vipDiscountBearingRatio: { title: "超V承担比", type: "number" },
+        vipDiscountBearingRatio: { title: "超V承担比例", type: "nonNegative" },
         platformCommission: { title: "平台扣点", type: "number" },
         brandCommission: { title: "品牌扣点", type: "number" },
       },
@@ -1023,16 +1162,16 @@ class DataConfig {
     // ========== 10. 报表模板配置实体 ==========
     this.REPORT_TEMPLATE = {
       worksheet: "报表配置",
-      requiredFields: ["templateName", "fieldName"],
+
       uniqueKey: ["templateName", "fieldName"],
       fields: {
         templateName: { title: "模板名称", type: "string" },
         fieldName: { title: "字段", type: "string" },
-        columnTitle: { title: "标题", type: "string" },
-        columnWidth: { title: "宽度", type: "number" },
-        isVisible: { title: "显示", type: "string" },
-        displayOrder: { title: "顺序", type: "number" },
-        numberFormat: { title: "格式", type: "string" },
+        columnTitle: { title: "显式标题", type: "string" },
+        columnWidth: { title: "显式宽度", type: "number" },
+        isVisible: { title: "是否显示", type: "string" },
+        displayOrder: { title: "显式顺序", type: "number" },
+        numberFormat: { title: "显式格式", type: "string" },
         titleColor: { title: "标题颜色", type: "string", persist: false },
         description: { title: "说明", type: "string" },
       },
@@ -1041,6 +1180,7 @@ class DataConfig {
     DataConfig._instance = this;
   }
 
+  // 单例模式获取实体配置器对象
   static getInstance() {
     if (!DataConfig._instance) {
       DataConfig._instance = new DataConfig();
@@ -1048,6 +1188,7 @@ class DataConfig {
     return DataConfig._instance;
   }
 
+  // 以{fields:[],message:string,isComposite:boolean}对象返回实体主键
   parseUniqueKey(uniqueKey) {
     if (!uniqueKey) {
       return { fields: [], message: "", isComposite: false };
@@ -1081,6 +1222,7 @@ class DataConfig {
     return { fields: [], message: "", isComposite: false };
   }
 
+  // 获取所有实体的配置对象
   getAll() {
     return {
       Product: this.PRODUCT,
@@ -1096,10 +1238,15 @@ class DataConfig {
     };
   }
 
+  // 获取当前工作薄的名称
+  getWork;
+
+  // 获取指定实体的配置对象
   get(entityName) {
     return this[entityName] || this.getAll()[entityName];
   }
 
+  // 以{key:title,...}形式返回实体的字段与标题映射
   getFieldTitles(entityName) {
     const entity = this.get(entityName);
     if (!entity) return {};
@@ -1111,6 +1258,7 @@ class DataConfig {
     return titles;
   }
 
+  // 返回实体中指定标题的字段
   findFieldByTitle(entityName, title) {
     const entity = this.get(entityName);
     if (!entity) return null;
@@ -1123,16 +1271,15 @@ class DataConfig {
     return null;
   }
 
-  _getISOWeekNumber(date) {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-    const week1 = new Date(d.getFullYear(), 0, 4);
-    return (
-      1 +
-      Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
-    );
-  }
+  //
+  // _getISOWeekNumber(date) {
+  //   const d = new Date(date);
+  //   d.setHours(0, 0, 0, 0);
+  //   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  //   const week1 = new Date(d.getFullYear(), 0, 4);
+  //   return (
+  //     1 +
+  //     Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+  //   );
+  // }
 }
-
-const dataConfig = DataConfig.getInstance();

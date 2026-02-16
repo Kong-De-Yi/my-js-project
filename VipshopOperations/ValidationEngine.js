@@ -7,12 +7,12 @@ class ValidationEngine {
   constructor() {
     this._validators = {
       required: (value, params) => ({
-        valid: value !== undefined && value !== null && value !== "",
+        valid: value != null && String(value).trim() !== "",
         message: params?.message || "不能为空",
       }),
 
       enum: (value, params) => ({
-        valid: value === undefined || params.values.includes(value),
+        valid: value == undefined || params.values.includes(value),
         message:
           params?.message || `必须是以下值之一：${params.values.join(", ")}`,
       }),

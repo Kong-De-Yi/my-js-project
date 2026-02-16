@@ -52,10 +52,12 @@ class ExcelDAO {
     return match[1];
   }
 
+  // 获取工作薄名称
   getWorkbookName() {
     return this._workbookName;
   }
 
+  // 获取工作薄
   getWorkbook() {
     try {
       return Workbooks(this._workbookName);
@@ -77,7 +79,7 @@ class ExcelDAO {
     // 获取需要持久化的字段映射
     const keyToTitle = {};
     Object.entries(fields).forEach(([key, config]) => {
-      if (config.persist !== false && config.type !== "computed") {
+      if (config.type !== "computed") {
         keyToTitle[key] = config.title || key;
       }
     });
@@ -100,8 +102,7 @@ class ExcelDAO {
     // 过滤空行
     data = data.filter(
       (row) =>
-        row &&
-        row.some((cell) => cell != null && cell.toString().trim() !== ""),
+        row && row.some((cell) => cell != null && String(cell).trim() !== ""),
     );
 
     if (data.length === 0) {
@@ -245,26 +246,26 @@ class ExcelDAO {
 
   // 转换为数字
   _toNumber(value) {
-    if (value === undefined || value === null || value === "") {
+    if (
+      value == null ||
+      String(value).trim() === "" ||
+      typeof value === "boolean"
+    ) {
       return undefined;
     }
 
-    if (typeof value === "boolean") {
-      return 0;
-    }
-
     const num = Number(value);
-    return isNaN(num) ? undefined : num;
+    return isFinite(num) ? num : undefined;
   }
 
   // 转换为字符串
   _toString(value) {
-    if (value === undefined || value === null) {
+    if (
+      value == null ||
+      String(value).trim() === "" ||
+      typeof value === "boolean"
+    ) {
       return undefined;
-    }
-
-    if (typeof value === "string") {
-      return value;
     }
 
     return String(value);
