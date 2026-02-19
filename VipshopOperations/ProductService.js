@@ -58,9 +58,6 @@ class ProductService {
       const allProducts = [...updatedProducts, ...newProducts];
       this._repository.save("Product", allProducts);
 
-      // 6. 清空常态商品表
-      this._repository.clear("RegularProduct");
-
       result.updatedProducts = updatedProducts.length;
 
       return result;
@@ -276,7 +273,6 @@ class ProductService {
 
     product.isOutOfStock =
       outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
-
     return product;
   }
 

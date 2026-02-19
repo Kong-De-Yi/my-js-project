@@ -93,7 +93,7 @@ class Repository {
     }
 
     const indexedResult = this._queryByIndex(entityName, condition);
-    if (indexedResult !== null) {
+    if (indexedResult != null) {
       return indexedResult;
     }
 
@@ -104,10 +104,12 @@ class Repository {
     const entityConfig = this._config.get(entityName);
 
     if (entityConfig?.uniqueKey) {
-      const uniqueKeyConfig = dataConfig.parseUniqueKey(entityConfig.uniqueKey);
+      const uniqueKeyConfig = this._config.parseUniqueKey(
+        entityConfig.uniqueKey,
+      );
       const fields = uniqueKeyConfig.fields;
 
-      const hasAllFields = fields.every((f) => condition[f] !== undefined);
+      const hasAllFields = fields.every((f) => condition[f] != undefined);
 
       if (hasAllFields && Object.keys(condition).length === fields.length) {
         const indexResult = this._queryByIndex(entityName, condition);
@@ -168,10 +170,12 @@ class Repository {
       const sortFields = Array.isArray(options.sort)
         ? options.sort
         : [options.sort];
+
       results.sort((a, b) => {
         for (const sort of sortFields) {
           let field,
             order = 1;
+
           if (typeof sort === "string") {
             field = sort;
           } else {
@@ -430,6 +434,7 @@ class Repository {
     return this.findAll(entityName);
   }
 
+  // 批量保存多个实体数据
   transaction(operations) {
     const results = {};
     const errors = [];
@@ -454,13 +459,13 @@ class Repository {
   _getCompositeKey(item, fields) {
     if (fields.length === 1) {
       const value = item[fields[0]];
-      return value !== undefined && value !== null ? String(value) : "";
+      return value != undefined ? String(value) : "";
     }
 
     return fields
       .map((f) => {
         const value = item[f];
-        return value !== undefined && value !== null ? String(value) : "";
+        return value != undefined ? String(value) : "";
       })
       .join("¦");
   }
@@ -486,8 +491,12 @@ class Repository {
     let indexConfigs = this._indexConfigs.get(entityName) || [];
 
     const entityConfig = this._config.get(entityName);
+
+    // 检查索引配置中是否有配置主键索引,没有则添加
     if (entityConfig?.uniqueKey) {
-      const uniqueKeyConfig = dataConfig.parseUniqueKey(entityConfig.uniqueKey);
+      const uniqueKeyConfig = this._config.parseUniqueKey(
+        entityConfig.uniqueKey,
+      );
       const fields = uniqueKeyConfig.fields;
 
       if (fields.length > 0) {
@@ -520,7 +529,7 @@ class Repository {
       data.forEach((item) => {
         const value = this._getCompositeKey(item, sortedFields);
 
-        if (value !== undefined && value !== null && value !== "") {
+        if (value != undefined && String(value).trim() !== "") {
           if (config.unique) {
             if (index.has(value)) {
               item._indexError = `索引${indexKey}值"${value}"重复`;
@@ -544,6 +553,7 @@ class Repository {
 
     const conditionFields = Object.keys(condition).sort();
 
+    // 1. 精确匹配
     const exactMatchKey = conditionFields.join("|");
     if (entityIndexes.has(exactMatchKey)) {
       const index = entityIndexes.get(exactMatchKey);
@@ -556,34 +566,49 @@ class Repository {
       return [];
     }
 
+    // 2. 前缀匹配
     for (let i = conditionFields.length; i > 0; i--) {
       const prefixFields = conditionFields.slice(0, i);
       const prefixKey = prefixFields.join("|");
+      const remainingFields = conditionFields.slice(i); // 剩余字段
 
       if (entityIndexes.has(prefixKey)) {
         const index = entityIndexes.get(prefixKey);
         const results = [];
 
         for (let [compositeValue, items] of index.entries()) {
-          const itemCondition = this._parseCompositeKey(
-            prefixKey,
-            compositeValue,
-          );
-          let match = true;
+          // 解析前缀值
+          const prefixValues = compositeValue.split("¦");
 
+          // 检查前缀是否匹配
+          let prefixMatch = true;
           for (let j = 0; j < prefixFields.length; j++) {
             const field = prefixFields[j];
-            if (itemCondition[field] != condition[field]) {
-              match = false;
-              break;
+            const prefixVal = prefixValues[j];
+
+            // 如果条件中该字段未定义，视为匹配
+            if (condition[field] != undefined) {
+              if (String(prefixVal) != String(condition[field])) {
+                prefixMatch = false;
+                break;
+              }
             }
           }
 
-          if (match) {
-            if (Array.isArray(items)) {
-              results.push(...items);
-            } else {
-              results.push(items);
+          if (prefixMatch) {
+            // 对匹配前缀的记录，检查剩余条件
+            const records = Array.isArray(items) ? items : [items];
+
+            const matchedRecords = records.filter((record) => {
+              return remainingFields.every((field) => {
+                // 如果条件中没有这个字段，视为匹配
+                if (condition[field] == undefined) return true;
+                return record[field] == condition[field];
+              });
+            });
+
+            if (matchedRecords.length > 0) {
+              results.push(...matchedRecords);
             }
           }
         }
@@ -594,13 +619,14 @@ class Repository {
       }
     }
 
+    // 3. 没有可用索引，返回 null 让上层做全表扫描
     return null;
   }
 
   _fullScan(data, condition) {
     return data.filter((item) => {
       return Object.entries(condition).every(([key, val]) => {
-        if (val === undefined) return true;
+        if (val == undefined) return true;
         if (Array.isArray(val)) {
           return val.includes(item[key]);
         }
@@ -666,8 +692,4 @@ class Repository {
     this._cache.clear();
     this._indexes.clear();
   }
-}
-
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = Repository;
 }

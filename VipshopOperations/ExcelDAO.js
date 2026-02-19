@@ -14,12 +14,13 @@ class ExcelDAO {
   _detectWorkbookName() {
     try {
       // 1. 尝试获取当前活动工作簿
+      const appName = this._config.getAppName();
       const activeWb = ActiveWorkbook;
       if (activeWb?.Name) {
         // 验证文件名格式：必须包含"商品运营表"
-        if (!activeWb.Name.includes("商品运营表")) {
+        if (!activeWb.Name.includes(appName)) {
           throw new Error(
-            `工作簿名称必须包含"商品运营表"，当前名称：${activeWb.Name}`,
+            `工作簿名称必须包含"${appName}"，当前名称：${activeWb.Name}`,
           );
         }
         return activeWb.Name;
@@ -32,7 +33,7 @@ class ExcelDAO {
     try {
       for (let i = 1; i <= Workbooks.Count; i++) {
         const wb = Workbooks(i);
-        if (wb.Name.includes("商品运营表")) {
+        if (wb.Name.includes(appName)) {
           return wb.Name;
         }
       }
@@ -40,7 +41,7 @@ class ExcelDAO {
       // 忽略
     }
 
-    throw new Error('未找到包含"商品运营表"的工作簿，请先打开文件');
+    throw new Error(`未找到包含"${appName}"的工作簿，请先打开文件`);
   }
 
   // 从工作簿名称提取品牌
@@ -79,7 +80,7 @@ class ExcelDAO {
     // 获取需要持久化的字段映射
     const keyToTitle = {};
     Object.entries(fields).forEach(([key, config]) => {
-      if (config.type !== "computed") {
+      if (config.persist !== false && config.type !== "computed") {
         keyToTitle[key] = config.title || key;
       }
     });
@@ -90,7 +91,7 @@ class ExcelDAO {
       const sheet = this.getWorkbook().Sheets(wsName);
       const usedRange = sheet.UsedRange;
 
-      if (!usedRange || usedRange.Value2 === null) {
+      if (!usedRange || usedRange.Value2 == null) {
         return [];
       }
 
@@ -164,7 +165,7 @@ class ExcelDAO {
     const keyToTitle = {};
 
     Object.entries(fields).forEach(([key, config]) => {
-      if (config.persist !== false && config.type !== "computed") {
+      if (config.persist !== false) {
         persistFields.push(key);
         keyToTitle[key] = config.title || key;
       }
@@ -182,7 +183,11 @@ class ExcelDAO {
         const value = item[key];
         const fieldConfig = fields[key];
 
-        if (value === undefined || value === null) {
+        if (
+          value == undefined ||
+          String(value).trim() === "" ||
+          typeof value === "boolean"
+        ) {
           return "";
         }
 

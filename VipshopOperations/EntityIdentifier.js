@@ -6,7 +6,7 @@
 
 class EntityIdentifier {
   constructor() {
-    this._config = dataConfig;
+    this._config = DataConfig.getInstance();
   }
 
   /**

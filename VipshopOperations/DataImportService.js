@@ -8,8 +8,8 @@ class DataImportService {
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
-    this._config = dataConfig;
-    this._identifier = entityIdentifier;
+    this._config = DataConfig.getInstanc();
+    this._identifier = new EntityIdentifier();
   }
 
   /**
@@ -26,7 +26,7 @@ class DataImportService {
     }
 
     const usedRange = sheet.UsedRange;
-    if (!usedRange || usedRange.Value2 === null) {
+    if (!usedRange || usedRange.Value2 == null) {
       throw new Error("【导入数据】工作表中没有数据");
     }
 
@@ -92,7 +92,7 @@ class DataImportService {
     }
 
     // 8. 清空导入数据表
-    this._clearImportSheet();
+    this._excelDAO.clear("ImportData");
 
     return result;
   }
@@ -233,55 +233,31 @@ class DataImportService {
   }
 
   /**
-   * 清空导入数据表
-   */
-  _clearImportSheet() {
-    try {
-      const wb = this._excelDAO.getWorkbook();
-      const sheet = wb.Sheets("导入数据");
-
-      // 只清除数据，保留标题行
-      const usedRange = sheet.UsedRange;
-      if (usedRange && usedRange.Rows.Count > 1) {
-        const dataRange = sheet.Range(
-          sheet.Cells(2, 1),
-          sheet.Cells(usedRange.Rows.Count, usedRange.Columns.Count),
-        );
-        dataRange.ClearContents();
-      }
-
-      wb.Save();
-    } catch (e) {
-      // 忽略清空错误
-    }
-  }
-
-  /**
    * 转换为数字
    */
   _toNumber(value) {
-    if (value === undefined || value === null || value === "") {
-      return 0;
-    }
-
-    if (typeof value === "boolean") {
-      return 0;
+    if (
+      value == undefined ||
+      String(value).trim() === "" ||
+      typeof value === "boolean"
+    ) {
+      return undefined;
     }
 
     const num = Number(value);
-    return isNaN(num) ? 0 : num;
+    return isFinite(num) ? num : undefined;
   }
 
   /**
    * 转换为字符串
    */
   _toString(value) {
-    if (value === undefined || value === null) {
-      return "";
-    }
-
-    if (typeof value === "string") {
-      return value;
+    if (
+      value == undefined ||
+      String(value).trim() === "" ||
+      typeof value === "boolean"
+    ) {
+      return undefined;
     }
 
     return String(value);

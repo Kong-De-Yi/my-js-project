@@ -5,63 +5,88 @@
 
 class ValidationEngine {
   constructor() {
+    this._config = DataConfig.getInstance();
+
     this._validators = {
       required: (value, params) => ({
-        valid: value != null && String(value).trim() !== "",
+        valid: value != undefined && String(value).trim() !== "",
         message: params?.message || "不能为空",
       }),
 
       enum: (value, params) => ({
-        valid: value == undefined || params.values.includes(value),
+        valid:
+          value == undefined ||
+          String(value).trim() === "" ||
+          params.values.includes(value),
         message:
           params?.message || `必须是以下值之一：${params.values.join(", ")}`,
       }),
 
       pattern: (value, params) => ({
-        valid: value === undefined || params.regex.test(String(value)),
+        valid:
+          value == undefined ||
+          String(value).trim() === "" ||
+          params.regex.test(String(value)),
         message:
           params?.message ||
           `格式不正确${params.description ? "：" + params.description : ""}`,
       }),
 
       range: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
-        if (params.min !== undefined && num < params.min) {
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
+
+        if (params.min != undefined && num < params.min) {
           return { valid: false, message: `不能小于${params.min}` };
         }
-        if (params.max !== undefined && num > params.max) {
+        if (params.max != undefined && num > params.max) {
           return { valid: false, message: `不能大于${params.max}` };
         }
         return { valid: true };
       },
 
       nonNegative: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
         return { valid: num >= 0, message: params?.message || "不能为负数" };
       },
 
       positive: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
         return { valid: num > 0, message: params?.message || "必须大于0" };
       },
 
       number: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
         return {
-          valid: !isNaN(num) && isFinite(num),
+          valid: isFinite(num),
           message: params?.message || "必须是有效的数字",
         };
       },
 
       date: (value, params) => {
-        if (value === undefined || value === null || value === "") {
+        if (value == undefined || String(value).trim() === "") {
           return { valid: true };
         }
 
@@ -75,11 +100,15 @@ class ValidationEngine {
         };
       },
 
-      // 新增：年份验证
+      // 年份验证
       year: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
         const currentYear = new Date().getFullYear();
         const minYear = params?.minYear || currentYear - 10;
         const maxYear = params?.maxYear || currentYear + 5;
@@ -89,22 +118,30 @@ class ValidationEngine {
         };
       },
 
-      // 新增：月份验证
+      // 月份验证
       month: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
         return {
           valid: num >= 1 && num <= 12,
           message: "月份必须在1-12之间",
         };
       },
 
-      // 新增：周数验证
+      // 周数验证
       week: (value, params) => {
-        if (value === undefined) return { valid: true };
+        if (value == undefined || String(value).trim() === "")
+          return { valid: true };
+        if (typeof value === "boolean")
+          return { valid: false, message: "必须是数字" };
+
         const num = Number(value);
-        if (isNaN(num)) return { valid: false, message: "必须是数字" };
+        if (!isFinite(num)) return { valid: false, message: "必须是数字" };
         return {
           valid: num >= 1 && num <= 53,
           message: "周数必须在1-53之间",
@@ -113,40 +150,44 @@ class ValidationEngine {
     };
   }
 
+  // 返回字段的组合键值，多字段用 ¦ 连接
   _getCompositeKeyValue(item, fields) {
     if (fields.length === 1) {
       const value = item[fields[0]];
-      return value !== undefined && value !== null ? String(value) : "";
+      return value != undefined ? String(value) : "";
     }
 
     return fields
       .map((f) => {
         const value = item[f];
-        return value !== undefined && value !== null ? String(value) : "";
+        return value != undefined ? String(value) : "";
       })
       .join("¦");
   }
 
+  // 返回字段的标题
   _getFieldTitle(fieldName, fieldConfig) {
     return fieldConfig?.title || fieldName;
   }
 
+  // 验证一个实体对象的主键唯一性
   _validateCompositeKey(entity, entityConfig, allData) {
     if (!entityConfig.uniqueKey) {
       return { valid: true, errors: [] };
     }
 
-    const uniqueKeyConfig = dataConfig.parseUniqueKey(entityConfig.uniqueKey);
-    const fields = uniqueKeyConfig.fields;
+    const uniqueKeyConfig = this._config.parseUniqueKey(entityConfig.uniqueKey);
+    const fields = uniqueKeyConfig.fields; // 数组形式
 
     if (fields.length === 0) {
       return { valid: true, errors: [] };
     }
 
+    // 验证主键的字段完整性
     const missingFields = [];
     fields.forEach((field) => {
       const value = entity[field];
-      if (value === undefined || value === null || value === "") {
+      if (value == undefined || String(value).trim() === "") {
         missingFields.push(field);
       }
     });
@@ -193,10 +234,12 @@ class ValidationEngine {
     return { valid: true, errors: [] };
   }
 
+  // 注册验证器
   register(name, validatorFn) {
     this._validators[name] = validatorFn;
   }
 
+  // 验证单个验证器
   validateValue(value, validatorConfig, fieldTitle = "") {
     const validator = this._validators[validatorConfig.type];
     if (!validator) {
@@ -210,6 +253,7 @@ class ValidationEngine {
     };
   }
 
+  // 验证单字段多个验证器
   validateField(value, fieldConfig, fieldName) {
     if (!fieldConfig.validators || fieldConfig.validators.length === 0) {
       return { valid: true, errors: [] };
@@ -221,7 +265,7 @@ class ValidationEngine {
     for (const validator of fieldConfig.validators) {
       if (
         validator.type !== "required" &&
-        (value === undefined || value === null || value === "")
+        (value == undefined || String(value).trim() === "")
       ) {
         continue;
       }
@@ -238,6 +282,7 @@ class ValidationEngine {
     };
   }
 
+  // 验证一个实体对象（包括主键唯一性）
   validateEntity(entity, entityConfig, context = {}) {
     const errors = {};
 
@@ -272,6 +317,7 @@ class ValidationEngine {
     };
   }
 
+  // 验证整个实体集
   validateAll(entities, entityConfig) {
     const results = {
       valid: true,
@@ -316,16 +362,10 @@ class ValidationEngine {
       if (!item.valid) {
         message += `\n第${item.rowNumber || "?"}行：\n`;
 
-        Object.entries(item.errors).forEach(([field, fieldErrors]) => {
-          if (field === "_composite") {
-            fieldErrors.forEach((err) => {
-              message += `  ${err}\n`;
-            });
-          } else {
-            fieldErrors.forEach((err) => {
-              message += `  ${err}\n`;
-            });
-          }
+        Object.values(item.errors).forEach((fieldErrors) => {
+          fieldErrors.forEach((err) => {
+            message += `  ${err}\n`;
+          });
         });
       }
     });
@@ -388,5 +428,3 @@ class ValidationEngine {
     );
   }
 }
-
-const validationEngine = new ValidationEngine();

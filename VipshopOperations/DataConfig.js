@@ -11,6 +11,8 @@ class DataConfig {
       return DataConfig._instance;
     }
 
+    this.APPNAME = "商品运营表";
+
     // ========== 1. 货号总表实体配置 ==========
     this.PRODUCT = {
       worksheet: "货号总表",
@@ -76,12 +78,7 @@ class DataConfig {
         listingYear: {
           title: "上市年份",
           type: "number",
-          validators: [
-            {
-              type: "enum",
-              params: { values: [2023, 2024, 2025, 2026, 2027, 2028] },
-            },
-          ],
+          validators: [{ type: "year" }],
         },
         mainSalesSeason: {
           title: "主销季节",
@@ -1123,7 +1120,9 @@ class DataConfig {
     // ========== 7. 系统记录实体 ==========
     this.SYSTEM_RECORD = {
       worksheet: "系统记录",
+      uniqueKey: "recordId",
       fields: {
+        recordId: { title: "记录ID", type: "string", persist: false },
         updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
         updateDateOfRegularProduct: {
           title: "常态商品更新日期",
@@ -1238,8 +1237,10 @@ class DataConfig {
     };
   }
 
-  // 获取当前工作薄的名称
-  getWork;
+  //获取APPNAME
+  getAppName() {
+    return this.APPNAME;
+  }
 
   // 获取指定实体的配置对象
   get(entityName) {
