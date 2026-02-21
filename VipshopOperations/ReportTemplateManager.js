@@ -7,7 +7,7 @@ class ReportTemplateManager {
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
-    this._config = dataConfig;
+    this._config = DataConfig.getInstance();
     this._templates = null;
     this._currentTemplate = null;
   }
@@ -19,6 +19,7 @@ class ReportTemplateManager {
       return templates;
     }
 
+    // 没有配置模板则新增默认模板
     this._createDefaultTemplate("库存预警报表", [
       { field: "itemNumber", title: "货号", width: 15, order: 1 },
       { field: "styleNumber", title: "款号", width: 12, order: 2 },
@@ -123,6 +124,7 @@ class ReportTemplateManager {
     return this.loadTemplates();
   }
 
+  // 创建报表模板并保存至报表配置工作表
   _createDefaultTemplate(templateName, columns) {
     const templateData = [];
 
@@ -146,6 +148,7 @@ class ReportTemplateManager {
       existingTemplates = [];
     }
 
+    // 剔除已配置的报表模板
     const filtered = existingTemplates.filter(
       (t) => t.templateName !== templateName,
     );
@@ -154,6 +157,7 @@ class ReportTemplateManager {
     this._repository.save("ReportTemplate", allTemplates);
   }
 
+  // 从报表配置工作表载入模板配置项目，返回Map(模板名称——>配置对象数组)
   loadTemplates() {
     if (this._templates) {
       return this._templates;
@@ -204,12 +208,13 @@ class ReportTemplateManager {
       this._templates = templates;
       return templates;
     } catch (e) {
-      console.log("加载模板失败：", e.message);
+      MsgBox("报表初始化失败" + e.message);
       this._templates = new Map();
       return this._templates;
     }
   }
 
+  // 返回报表配置的模板项目标题颜色Map(模板名称|字段名称——>颜色)
   _readRowColors(sheet, templateItems) {
     const colorMap = new Map();
 
@@ -261,22 +266,25 @@ class ReportTemplateManager {
         }
       }
     } catch (e) {
-      console.log("读取标题颜色失败：", e.message);
+      MsgBox("读取标题颜色失败：" + e.message);
     }
 
     return colorMap;
   }
 
+  //  返回所有的报表模板名称数组
   getTemplateList() {
     const templates = this.loadTemplates();
     return Array.from(templates.keys()).sort();
   }
 
+  // 获取指定的报表模板的报表项目，返回数组
   getTemplate(templateName) {
     const templates = this.loadTemplates();
     return templates.get(templateName) || [];
   }
 
+  // 设置当前的报表模板
   setCurrentTemplate(templateName) {
     if (templateName && this.loadTemplates().has(templateName)) {
       this._currentTemplate = templateName;
@@ -285,6 +293,7 @@ class ReportTemplateManager {
     return false;
   }
 
+  // 获取当前的报表模板
   getCurrentTemplate() {
     return this._currentTemplate;
   }

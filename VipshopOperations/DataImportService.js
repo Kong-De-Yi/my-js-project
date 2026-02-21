@@ -8,14 +8,11 @@ class DataImportService {
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
-    this._config = DataConfig.getInstanc();
+    this._config = DataConfig.getInstance();
     this._identifier = new EntityIdentifier();
   }
 
-  /**
-   * 执行数据导入
-   * @returns {Object} 导入结果报告
-   */
+  // 执行数据导入
   import() {
     // 1. 获取导入数据
     const wb = this._excelDAO.getWorkbook();
@@ -59,31 +56,22 @@ class DataImportService {
     // 5. 获取导入模式
     const mode = this._identifier.getImportMode(entityName);
 
-    // 6. 执行导入
+    // 6. 读取数据
+    const items = this._excelDAO.read(entityName, "导入数据");
+
+    // 7. 验证数据
     const entityConfig = this._config.get(entityName);
-    const fieldMapping = this._buildFieldMapping(headers, entityConfig);
+    const validationResult = validationEngine.validateAll(items, entityConfig);
 
-    // 转换数据
-    const items = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const item = { _rowNumber: i + 1 };
-
-      Object.entries(fieldMapping).forEach(([field, colIndex]) => {
-        const rawValue = row[colIndex];
-        const fieldConfig = entityConfig.fields[field];
-
-        if (fieldConfig?.type === "number") {
-          item[field] = this._toNumber(rawValue);
-        } else {
-          item[field] = this._toString(rawValue);
-        }
-      });
-
-      items.push(item);
+    if (!validationResult.valid) {
+      const errorMsg = validationEngine.formatErrors(
+        validationResult,
+        entityConfig.worksheet,
+      );
+      throw new Error(errorMsg);
     }
 
-    // 7. 根据模式处理数据
+    // 8. 根据模式处理数据
     let result;
     if (mode === "append") {
       result = this._appendData(entityName, items);
@@ -91,57 +79,14 @@ class DataImportService {
       result = this._overwriteData(entityName, items);
     }
 
-    // 8. 清空导入数据表
+    // 9. 清空导入数据表
     this._excelDAO.clear("ImportData");
 
     return result;
   }
 
-  /**
-   * 构建字段映射
-   */
-  _buildFieldMapping(headers, entityConfig) {
-    const mapping = {};
-
-    Object.entries(entityConfig.fields).forEach(([field, config]) => {
-      const title = config.title || field;
-      const index = headers.indexOf(title);
-      if (index !== -1) {
-        mapping[field] = index;
-      }
-    });
-
-    // 检查必填字段
-    const requiredFields = entityConfig.requiredFields || [];
-    const missingFields = requiredFields.filter(
-      (field) => !mapping.hasOwnProperty(field),
-    );
-
-    if (missingFields.length > 0) {
-      const missingTitles = missingFields.map((f) => {
-        const config = entityConfig.fields[f];
-        return config?.title || f;
-      });
-      throw new Error(`缺少必填字段：${missingTitles.join("、")}`);
-    }
-
-    return mapping;
-  }
-
-  /**
-   * 覆盖模式导入
-   */
+  // 覆盖模式导入
   _overwriteData(entityName, items) {
-    // 验证数据（简单验证）
-    const errors = [];
-    items.forEach((item, index) => {
-      if (!item._rowNumber) item._rowNumber = index + 2;
-    });
-
-    if (errors.length > 0) {
-      throw new Error(`数据验证失败：\n${errors.join("\n")}`);
-    }
-
     // 直接保存（覆盖）
     this._repository.save(entityName, items);
 
@@ -155,32 +100,11 @@ class DataImportService {
     };
   }
 
-  /**
-   * 追加模式导入（销售数据）
-   */
+  // 追加模式导入（销售数据）
   _appendData(entityName, newItems) {
-    // 验证新数据
-    const errors = [];
-    newItems.forEach((item, index) => {
-      if (!item._rowNumber) item._rowNumber = index + 2;
-
-      // 检查必填
-      if (!item.salesDate || !item.itemNumber) {
-        errors.push(`第${item._rowNumber}行：缺少销售日期或货号`);
-      }
-    });
-
-    if (errors.length > 0) {
-      throw new Error(`数据验证失败：\n${errors.join("\n")}`);
-    }
-
     // 读取历史数据
     let existingItems = [];
-    try {
-      existingItems = this._repository.findAll(entityName);
-    } catch (e) {
-      existingItems = [];
-    }
+    existingItems = this._repository.findAll(entityName);
 
     // 建立索引：货号+日期
     const existingMap = new Map();

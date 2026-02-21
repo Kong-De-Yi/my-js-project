@@ -14,15 +14,9 @@ class IndexConfig {
     // ========== 商品主实体索引配置 ==========
     this.PRODUCT_INDEXES = [
       { fields: ["itemNumber"], unique: true },
-      { fields: ["brandSN", "itemStatus"], unique: false },
-      { fields: ["styleNumber", "color"], unique: false },
-      { fields: ["P_SPU"], unique: false },
-      { fields: ["marketingPositioning", "itemStatus"], unique: false },
-      { fields: ["firstListingTime"], unique: false },
-      { fields: ["brandSN", "marketingPositioning"], unique: false },
-      { fields: ["fourthLevelCategory", "thirdLevelCategory"], unique: false },
-      { fields: ["sellableDays"], unique: false },
-      { fields: ["profit"], unique: false },
+      { fields: ["styleNumber"], unique: false },
+      { fields: ["thirdLevelCategory"], unique: false },
+      { fields: ["fourthLevelCategory"], unique: false },
     ];
 
     // ========== 商品价格实体索引配置 ==========
@@ -32,7 +26,6 @@ class IndexConfig {
     this.REGULAR_PRODUCT_INDEXES = [
       { fields: ["itemNumber"], unique: false },
       { fields: ["productCode"], unique: true },
-      { fields: ["itemNumber", "sizeStatus"], unique: false },
     ];
 
     // ========== 库存实体索引配置 ==========
@@ -50,19 +43,8 @@ class IndexConfig {
       // 联合主键索引：货号 + 日期
       { fields: ["itemNumber", "salesDate"], unique: true },
 
-      // ========== 新增索引 ==========
-
       // 按年份索引 - 快速筛选某年的数据
       { fields: ["salesYear"], unique: false },
-
-      // 按月份索引 - 快速筛选某月的数据
-      { fields: ["salesMonth"], unique: false },
-
-      // 按周数索引 - 快速筛选某周的数据
-      { fields: ["salesWeekOfYear"], unique: false },
-
-      // 按季度索引 - 快速筛选某季度的数据
-      { fields: ["salesQuarter"], unique: false },
 
       // 按年月索引 - 快速筛选某年某月的数据
       { fields: ["yearMonth"], unique: false },
@@ -87,7 +69,6 @@ class IndexConfig {
       { fields: ["isLastYear"], unique: false },
       { fields: ["isYearBeforeLast"], unique: false },
       { fields: ["isCurrentMonth"], unique: false },
-      { fields: ["isLastWeek"], unique: false },
     ];
 
     // ========== 品牌配置实体索引配置 ==========
@@ -151,5 +132,3 @@ class IndexConfig {
     return matchCount / Math.max(indexFields.length, queryFields.length);
   }
 }
-
-const indexConfig = IndexConfig.getInstance();

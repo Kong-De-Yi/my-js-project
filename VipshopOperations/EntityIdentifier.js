@@ -9,11 +9,7 @@ class EntityIdentifier {
     this._config = DataConfig.getInstance();
   }
 
-  /**
-   * 识别导入数据的实体类型
-   * @param {Array} headers - 导入数据的表头行（标题字符串数组）
-   * @returns {string|null} 实体名称，如果无法识别返回null
-   */
+  // 识别导入数据的实体类型
   identify(headers) {
     if (!headers || headers.length === 0) {
       return null;
@@ -39,9 +35,7 @@ class EntityIdentifier {
     return null;
   }
 
-  /**
-   * 检查表头是否匹配实体的必填字段
-   */
+  // 检查表头是否匹配实体的必填字段
   _matchesEntity(entityName, headers) {
     const entity = this._config.get(entityName);
     if (!entity) return false;
@@ -59,9 +53,7 @@ class EntityIdentifier {
     return requiredTitles.every((title) => headers.includes(title));
   }
 
-  /**
-   * 验证实体是否支持导入
-   */
+  // 验证实体是否支持导入
   canImport(entityName) {
     const importableEntities = [
       "ProductSales",
@@ -72,11 +64,7 @@ class EntityIdentifier {
     return importableEntities.includes(entityName);
   }
 
-  /**
-   * 获取实体的导入模式
-   * - append: 追加模式（不覆盖，如销售数据）
-   * - overwrite: 覆盖模式（如常态商品、库存等）
-   */
+  // 获取实体的导入模式
   getImportMode(entityName) {
     const appendEntities = ["ProductSales"]; // 只有销售数据是追加模式
     return appendEntities.includes(entityName) ? "append" : "overwrite";

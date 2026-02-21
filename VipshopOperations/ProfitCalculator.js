@@ -33,8 +33,14 @@ class ProfitCalculator {
     returnRate = 0.3,
   ) {
     // 参数验证
-    if (!brandSN || costPrice === undefined || salesPrice === undefined) {
-      return undefined;
+    if (
+      !brandSN ||
+      costPrice == null ||
+      salesPrice == null ||
+      typeof costPrice === "boolean" ||
+      typeof salesPrice === "boolean"
+    ) {
+      return null;
     }
 
     const cost = Number(costPrice);
@@ -50,20 +56,15 @@ class ProfitCalculator {
       isNaN(ops2) ||
       isNaN(returnRt)
     ) {
-      return undefined;
+      return null;
     }
 
-    if (cost <= 0 || sales <= 0 || ops1 < 0 || ops2 < 0 || returnRt < 0) {
-      return undefined;
-    }
-
-    // 退货率归一化
-    if (returnRt > 1) {
-      returnRt = returnRt / 100;
+    if (cost <= 0 || sales <= 0 || ops1 < 0 || ops2 < 0 || returnRt <= 0) {
+      return null;
     }
 
     // 退货率修正
-    if (returnRt === 1 || returnRt < 0.3) {
+    if (returnRt < 0.3 || returnRt >= 1) {
       returnRt = 0.3;
     }
 
@@ -87,24 +88,23 @@ class ProfitCalculator {
     const grossProfit = priceAfterCoupon - cost;
 
     // 固定费用
-    const fixedCosts = (brand.packagingFee || 0) + (brand.shippingCost || 0);
+    const fixedCosts = brand.packagingFee + brand.shippingCost;
 
     // 退货相关成本
     const returnMultiplier = 1 / (1 - returnRt) - 1;
     const returnCosts = returnMultiplier * fixedCosts;
-    const returnProcessing = returnRt * (brand.returnProcessingFee || 0);
+    const returnProcessing = returnRt * brand.returnProcessingFee;
 
     // 优惠承担成本
-    const vipCost = vipDiscount * (brand.vipDiscountBearingRatio || 0);
+    const vipCost = vipDiscount * brand.vipDiscountBearingRatio;
 
     // 平台佣金
-    const platformFee = priceAfterCoupon * (brand.platformCommission || 0);
+    const platformFee = priceAfterCoupon * brand.platformCommission;
 
     // 品牌佣金
     const brandCommissionBase =
-      priceAfterCoupon * (1 - (brand.platformCommission || 0)) - vipCost;
-    const brandFee =
-      Math.max(0, brandCommissionBase) * (brand.brandCommission || 0);
+      priceAfterCoupon * (1 - brand.platformCommission) - vipCost;
+    const brandFee = Math.max(0, brandCommissionBase) * brand.brandCommission;
 
     // 最终利润
     const profit =
@@ -137,18 +137,18 @@ class ProfitCalculator {
       returnRate,
     );
 
-    if (profit === undefined || !costPrice || Number(costPrice) <= 0) {
-      return undefined;
-    }
+    if (profit == null) return null;
 
     return Number((profit / Number(costPrice)).toFixed(5));
   }
 
   // 计算活动价格
   calculateActivityPrice(silverPrice, level) {
+    if (silverPrice == undefined || typeof silverPrice === "boolean")
+      return null;
     const silver = Number(silverPrice);
     if (isNaN(silver) || silver <= 0) {
-      return undefined;
+      return null;
     }
 
     switch (level) {
@@ -163,7 +163,7 @@ class ProfitCalculator {
       case "直通车":
         return Number((silver / 0.9 / 0.95 / 0.95 + 0.06 * 3).toFixed(1));
       default:
-        return undefined;
+        return null;
     }
   }
 
@@ -195,7 +195,7 @@ class ProfitCalculator {
       returnRate,
     );
 
-    if (profit === undefined || profitRate === undefined) {
+    if (profit == null || profitRate == null) {
       return { valid: false, message: "无法计算利润" };
     }
 

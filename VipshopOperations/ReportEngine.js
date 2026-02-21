@@ -12,7 +12,7 @@ class ReportEngine {
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
-    this._config = dataConfig;
+    this._config = DataConfig.getInstance();
     this._templateManager = new ReportTemplateManager(repository, excelDAO);
 
     // 初始化销售统计服务
@@ -317,25 +317,24 @@ class ReportEngine {
     // ----- 2. 展开所有可展开字段 -----
     const expandedColumns = [];
     columns.forEach((col) => {
-      if (this._statisticsFieldsMap.has(col.field)) {
-        const statField = this._statisticsFieldsMap.get(col.field);
-        if (statField.type === "expandable") {
-          // 找到所有展开的子字段
-          const expanded = this._salesStatisticsFields.expandField(statField);
-          expanded.forEach((exp) => {
-            expandedColumns.push({
-              ...col,
-              field: exp.field,
-              title: exp.title,
-              width: exp.width || col.width,
-              format: exp.format || col.format,
-              color: col.color, // 保留标题颜色
-            });
+      // 获取原始字段定义（未展开的）
+      const baseField = this._salesStatisticsFields.getField(col.field);
+
+      if (baseField?.type === "expandable") {
+        // 展开抽象字段
+        const expanded = this._salesStatisticsFields.expandField(baseField);
+        expanded.forEach((exp) => {
+          expandedColumns.push({
+            ...col,
+            field: exp.field,
+            title: exp.title,
+            width: exp.width || col.width,
+            format: exp.format || col.format,
+            color: col.color,
           });
-        } else {
-          expandedColumns.push(col);
-        }
+        });
       } else {
+        // 普通字段或具体统计字段
         expandedColumns.push(col);
       }
     });

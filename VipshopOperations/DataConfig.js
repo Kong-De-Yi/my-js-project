@@ -903,75 +903,15 @@ class DataConfig {
          */
         salesYear: {
           title: "所属年份",
-          type: "string",
+          type: "computed",
           validators: [{ type: "required" }],
-          // description: "从销售日期中提取年份，用于快速筛选",
-          // compute: (obj) => {
-          //   if (!obj.salesDate) return undefined;
-          //   const date = validationEngine.parseDate(obj.salesDate);
-          //   return date ? date.getFullYear() : undefined;
-          // },
+          description: "从销售日期中提取年份，用于快速筛选",
+          compute: (obj) => {
+            if (!obj.salesDate) return undefined;
+            const date = validationEngine.parseDate(obj.salesDate);
+            return date ? date.getFullYear() : undefined;
+          },
         },
-
-        /**
-         * 所属月份
-         * 用途：快速筛选某月的销售数据
-         */
-        // salesMonth: {
-        //   title: "所属月份",
-        //   type: "string",
-        //   validators: [{ type: "required" }, { type: "month" }],
-        // description: "从销售日期中提取月份（1-12），用于快速筛选",
-        // compute: (obj) => {
-        //   if (!obj.salesDate) return undefined;
-        //   const date = validationEngine.parseDate(obj.salesDate);
-        //   return date ? date.getMonth() + 1 : undefined;
-        // },
-        // },
-
-        /**
-         * 所属年份的第几周
-         * 用途：快速筛选某周的销售数据
-         */
-        // salesWeekOfYear: {
-        //   title: "所属周数",
-        //   type: "string",
-        //   validators: [{ type: "required" }, { type: "week" }],
-        // description: "ISO周数（1-53），用于快速筛选",
-        // compute: (obj) => {
-        //   if (!obj.salesDate) return undefined;
-        //   const date = validationEngine.parseDate(obj.salesDate);
-        //   if (!date) return undefined;
-
-        //   const d = new Date(date);
-        //   d.setHours(0, 0, 0, 0);
-        //   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-        //   const week1 = new Date(d.getFullYear(), 0, 4);
-        //   const weekNum =
-        //     1 +
-        //     Math.round(
-        //       ((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
-        //     );
-        //   return weekNum;
-        // },
-        // },
-
-        /**
-         * 所属季度
-         * 用途：快速筛选某季度的销售数据
-         */
-        // salesQuarter: {
-        //   title: "所属季度",
-        //   type: "computed",
-        //   description: "季度（1-4），用于快速筛选",
-        //   compute: (obj) => {
-        //     if (!obj.salesDate) return undefined;
-        //     const date = validationEngine.parseDate(obj.salesDate);
-        //     if (!date) return undefined;
-        //     const month = date.getMonth() + 1;
-        //     return Math.ceil(month / 3);
-        //   },
-        // },
 
         /**
          * 年月组合
@@ -980,17 +920,17 @@ class DataConfig {
          */
         yearMonth: {
           title: "年月",
-          type: "string",
+          type: "computed",
           validators: [{ type: "required" }],
-          // description: "年月组合（YYYY-MM），用于快速筛选",
-          // compute: (obj) => {
-          //   if (!obj.salesDate) return undefined;
-          //   const date = validationEngine.parseDate(obj.salesDate);
-          //   if (!date) return undefined;
-          //   const year = date.getFullYear();
-          //   const month = String(date.getMonth() + 1).padStart(2, "0");
-          //   return `${year}-${month}`;
-          // },
+          description: "年月组合（YYYY-MM），用于快速筛选",
+          compute: (obj) => {
+            if (!obj.salesDate) return undefined;
+            const date = validationEngine.parseDate(obj.salesDate);
+            if (!date) return undefined;
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            return `${year}-${month}`;
+          },
         },
 
         /**
@@ -1000,120 +940,96 @@ class DataConfig {
          */
         yearWeek: {
           title: "年周",
-          type: "string",
+          type: "computed",
           validators: [{ type: "required" }],
-          // description: "年周组合（YYYY-WW），用于快速筛选",
-          // compute: (obj) => {
-          //   if (!obj.salesDate) return undefined;
-          //   const date = validationEngine.parseDate(obj.salesDate);
-          //   if (!date) return undefined;
-          //   const year = date.getFullYear();
-          //   const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
-          //   return `${year}-${week}`;
-          // },
+          description: "年周组合（YYYY-WW），用于快速筛选",
+          compute: (obj) => {
+            if (!obj.salesDate) return undefined;
+            const date = validationEngine.parseDate(obj.salesDate);
+            if (!date) return undefined;
+            const year = date.getFullYear();
+            const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
+            return `${year}-${week}`;
+          },
         },
 
         /**
          * 是否为今年
          */
-        // isCurrentYear: {
-        //   title: "是否今年",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesYear) return false;
-        //     const currentYear = new Date().getFullYear();
-        //     return obj.salesYear === currentYear;
-        //   },
-        // },
+        isCurrentYear: {
+          title: "是否今年",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.salesYear) return false;
+            const currentYear = new Date().getFullYear();
+            return obj.salesYear === currentYear;
+          },
+        },
 
         /**
          * 是否为去年
          */
-        // isLastYear: {
-        //   title: "是否去年",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesYear) return false;
-        //     const currentYear = new Date().getFullYear();
-        //     return obj.salesYear === currentYear - 1;
-        //   },
-        // },
+        isLastYear: {
+          title: "是否去年",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.salesYear) return false;
+            const currentYear = new Date().getFullYear();
+            return obj.salesYear === currentYear - 1;
+          },
+        },
 
         /**
          * 是否为前年
          */
-        // isYearBeforeLast: {
-        //   title: "是否前年",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesYear) return false;
-        //     const currentYear = new Date().getFullYear();
-        //     return obj.salesYear === currentYear - 2;
-        //   },
-        // },
+        isYearBeforeLast: {
+          title: "是否前年",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.salesYear) return false;
+            const currentYear = new Date().getFullYear();
+            return obj.salesYear === currentYear - 2;
+          },
+        },
 
         /**
          * 是否为本月
          */
-        // isCurrentMonth: {
-        //   title: "是否本月",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesDate) return false;
-        //     const date = validationEngine.parseDate(obj.salesDate);
-        //     if (!date) return false;
-        //     const today = new Date();
-        //     return (
-        //       date.getFullYear() === today.getFullYear() &&
-        //       date.getMonth() === today.getMonth()
-        //     );
-        //   },
-        // },
-
-        /**
-         * 是否为上周
-         */
-        // isLastWeek: {
-        //   title: "是否上周",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesDate) return false;
-        //     const date = validationEngine.parseDate(obj.salesDate);
-        //     if (!date) return false;
-
-        //     const today = new Date();
-        //     const lastWeekStart = new Date(today);
-        //     lastWeekStart.setDate(today.getDate() - today.getDay() - 6);
-        //     lastWeekStart.setHours(0, 0, 0, 0);
-
-        //     const lastWeekEnd = new Date(lastWeekStart);
-        //     lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-        //     lastWeekEnd.setHours(23, 59, 59, 999);
-
-        //     return date >= lastWeekStart && date <= lastWeekEnd;
-        //   },
-        // },
+        isCurrentMonth: {
+          title: "是否本月",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.salesDate) return false;
+            const date = validationEngine.parseDate(obj.salesDate);
+            if (!date) return false;
+            const today = new Date();
+            return (
+              date.getFullYear() === today.getFullYear() &&
+              date.getMonth() === today.getMonth()
+            );
+          },
+        },
 
         /**
          * 距今天数
          * 用途：快速筛选最近N天的数据
          */
-        // daysSinceSale: {
-        //   title: "距今天数",
-        //   type: "computed",
-        //   compute: (obj) => {
-        //     if (!obj.salesDate) return undefined;
-        //     const date = validationEngine.parseDate(obj.salesDate);
-        //     if (!date) return undefined;
+        daysSinceSale: {
+          title: "距今天数",
+          type: "computed",
+          compute: (obj) => {
+            if (!obj.salesDate) return undefined;
+            const date = validationEngine.parseDate(obj.salesDate);
+            if (!date) return undefined;
 
-        //     const today = new Date();
-        //     today.setHours(0, 0, 0, 0);
-        //     date.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
 
-        //     const diffTime = today - date;
-        //     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        //   },
-        // },
+            const diffTime = today - date;
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          },
+        },
       },
     };
 
@@ -1139,15 +1055,51 @@ class DataConfig {
       worksheet: "品牌配置",
       uniqueKey: "brandSN",
       fields: {
-        brandSN: { title: "品牌SN", type: "string" },
-        brandName: { title: "品牌名称", type: "string" },
-        packagingFee: { title: "打包费", type: "number" },
-        shippingCost: { title: "运费", type: "number" },
-        returnProcessingFee: { title: "退货整理费", type: "number" },
-        vipDiscountRate: { title: "超V折扣率", type: "number" },
-        vipDiscountBearingRatio: { title: "超V承担比例", type: "nonNegative" },
-        platformCommission: { title: "平台扣点", type: "number" },
-        brandCommission: { title: "品牌扣点", type: "number" },
+        brandSN: {
+          title: "品牌SN",
+          type: "string",
+          validators: [{ type: "required" }],
+        },
+        brandName: {
+          title: "品牌名称",
+          type: "string",
+          validators: [{ type: "required" }],
+        },
+        packagingFee: {
+          title: "打包费",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+        shippingCost: {
+          title: "运费",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+        returnProcessingFee: {
+          title: "退货整理费",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+        vipDiscountRate: {
+          title: "超V折扣率",
+          type: "number",
+          validators: [{ type: "required" }, { type: "nonNegative" }],
+        },
+        vipDiscountBearingRatio: {
+          title: "超V承担比例",
+          type: "number",
+          validators: [{ type: "required" }, { type: "nonNegative" }],
+        },
+        platformCommission: {
+          title: "平台扣点",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+        brandCommission: {
+          title: "品牌扣点",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
       },
     };
 

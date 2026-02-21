@@ -6,15 +6,15 @@
 
 class ExcelDAO {
   constructor() {
-    this._workbookName = this._detectWorkbookName();
     this._config = DataConfig.getInstance();
+    this._workbookName = this._detectWorkbookName();
   }
 
   // 从当前活动工作簿或文件名识别工作簿名称
   _detectWorkbookName() {
+    const appName = this._config.getAppName();
     try {
       // 1. 尝试获取当前活动工作簿
-      const appName = this._config.getAppName();
       const activeWb = ActiveWorkbook;
       if (activeWb?.Name) {
         // 验证文件名格式：必须包含"商品运营表"
@@ -68,19 +68,19 @@ class ExcelDAO {
   }
 
   // 读取工作表数据
-  read(entityName) {
+  read(entityName, wsName = null) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
       throw new Error(`未知实体：${entityName}`);
     }
 
-    const wsName = entityConfig.worksheet;
+    const wsName = wsName || entityConfig.worksheet;
     const fields = entityConfig.fields;
 
     // 获取需要持久化的字段映射
     const keyToTitle = {};
     Object.entries(fields).forEach(([key, config]) => {
-      if (config.persist !== false && config.type !== "computed") {
+      if (config.persist !== false) {
         keyToTitle[key] = config.title || key;
       }
     });

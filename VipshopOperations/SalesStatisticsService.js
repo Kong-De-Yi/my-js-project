@@ -166,9 +166,8 @@ class SalesStatisticsService {
   getLastNDaysSum(itemNumber, days, field) {
     if (!itemNumber) return 0;
 
-    const sales = this._repository.find("ProductSales", {
-      itemNumber: itemNumber,
-      daysSinceSale: { $lte: days },
+    const sales = this._repository.query("ProductSales", {
+      filter: { itemNumber: itemNumber, daysSinceSale: { $lte: days } },
     });
 
     return this._sumField(sales, field);
