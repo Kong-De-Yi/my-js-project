@@ -74,13 +74,13 @@ class ExcelDAO {
       throw new Error(`未知实体：${entityName}`);
     }
 
-    const wsName = wsName || entityConfig.worksheet;
+    wsName = wsName || entityConfig.worksheet;
     const fields = entityConfig.fields;
 
     // 获取需要持久化的字段映射
     const keyToTitle = {};
     Object.entries(fields).forEach(([key, config]) => {
-      if (config.persist !== false) {
+      if (config.type !== "computed") {
         keyToTitle[key] = config.title || key;
       }
     });
@@ -228,7 +228,8 @@ class ExcelDAO {
     }
 
     const wb = targetWorkbook || this.getWorkbook();
-    wb.Sheets(entityConfig.worksheet).Cells.ClearContents();
+    wb.Sheets(entityConfig.worksheet).Cells.Clear();
+    wb.Sheets(entityConfig.worksheet).Range("A1").Select();
 
     if (!targetWorkbook) {
       wb.Save();

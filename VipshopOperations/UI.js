@@ -32,6 +32,8 @@ function _initializeServices() {
     });
 
     // 注册所有索引
+    const indexConfig = IndexConfig.getInstance();
+
     _repository.registerIndexes("Product", indexConfig.getIndexes("Product"));
     _repository.registerIndexes(
       "ProductPrice",

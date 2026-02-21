@@ -253,30 +253,14 @@ class Repository {
     return this.find("ProductSales", query);
   }
 
-  /**
-   * 按年份查询销售数据（使用索引）
-   * @param {number} year - 年份
-   * @returns {Array} 销售数据
-   */
   findSalesByYear(year) {
     return this.find("ProductSales", { salesYear: year });
   }
 
-  /**
-   * 按年月查询销售数据（使用索引）
-   * @param {string} yearMonth - 年月 YYYY-MM
-   * @returns {Array} 销售数据
-   */
   findSalesByYearMonth(yearMonth) {
     return this.find("ProductSales", { yearMonth: yearMonth });
   }
 
-  /**
-   * 按货号和年份查询销售数据（使用索引）
-   * @param {string} itemNumber - 货号
-   * @param {number} year - 年份
-   * @returns {Array} 销售数据
-   */
   findSalesByItemAndYear(itemNumber, year) {
     return this.find("ProductSales", {
       itemNumber: itemNumber,
@@ -284,12 +268,6 @@ class Repository {
     });
   }
 
-  /**
-   * 按货号和年月查询销售数据（使用索引）
-   * @param {string} itemNumber - 货号
-   * @param {string} yearMonth - 年月 YYYY-MM
-   * @returns {Array} 销售数据
-   */
   findSalesByItemAndYearMonth(itemNumber, yearMonth) {
     return this.find("ProductSales", {
       itemNumber: itemNumber,
@@ -297,11 +275,6 @@ class Repository {
     });
   }
 
-  /**
-   * 查询近N天的销售数据（使用索引）
-   * @param {number} days - 天数
-   * @returns {Array} 销售数据
-   */
   findSalesLastNDays(days) {
     return this.query("ProductSales", {
       filter: {
@@ -390,9 +363,9 @@ class Repository {
             fieldConfig.validators?.some((v) => v.type === "date")
           ) {
             if (item[fieldName]) {
-              const date = validationEngine.parseDate(item[fieldName]);
+              const date = _validationEngine.parseDate(item[fieldName]);
               if (date) {
-                item[fieldName] = validationEngine.formatDate(date);
+                item[fieldName] = _validationEngine.formatDate(date);
               }
             }
           }
@@ -401,10 +374,10 @@ class Repository {
     });
 
     // 验证数据
-    const validationResult = validationEngine.validateAll(data, entityConfig);
+    const validationResult = _validationEngine.validateAll(data, entityConfig);
 
     if (!validationResult.valid) {
-      const errorMsg = validationEngine.formatErrors(
+      const errorMsg = _validationEngine.formatErrors(
         validationResult,
         entityConfig.worksheet,
       );

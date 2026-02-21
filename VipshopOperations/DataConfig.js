@@ -865,7 +865,7 @@ class DataConfig {
           validators: [{ type: "required" }],
         },
         addToCartUV: {
-          title: "加购UV",
+          title: "加购UV(加购用户数)",
           type: "number",
           validators: [{ type: "required" }],
         },
@@ -892,7 +892,7 @@ class DataConfig {
         firstListingTime: {
           title: "首次上架时间",
           type: "string",
-          validators: [{ type: "required" }, { type: "date" }],
+          validators: [{ type: "date" }],
         },
 
         // ========== 索引字段（计算字段，用于快速查询）==========
@@ -908,16 +908,11 @@ class DataConfig {
           description: "从销售日期中提取年份，用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
+            const date = _validationEngine.parseDate(obj.salesDate);
             return date ? date.getFullYear() : undefined;
           },
         },
 
-        /**
-         * 年月组合
-         * 用途：快速筛选某年月的销售数据
-         * 格式：YYYY-MM
-         */
         yearMonth: {
           title: "年月",
           type: "computed",
@@ -925,7 +920,7 @@ class DataConfig {
           description: "年月组合（YYYY-MM），用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
+            const date = _validationEngine.parseDate(obj.salesDate);
             if (!date) return undefined;
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -933,11 +928,6 @@ class DataConfig {
           },
         },
 
-        /**
-         * 年周组合
-         * 用途：快速筛选某年周的销售数据
-         * 格式：YYYY-WW
-         */
         yearWeek: {
           title: "年周",
           type: "computed",
@@ -945,68 +935,11 @@ class DataConfig {
           description: "年周组合（YYYY-WW），用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
+            const date = _validationEngine.parseDate(obj.salesDate);
             if (!date) return undefined;
             const year = date.getFullYear();
             const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
             return `${year}-${week}`;
-          },
-        },
-
-        /**
-         * 是否为今年
-         */
-        isCurrentYear: {
-          title: "是否今年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear;
-          },
-        },
-
-        /**
-         * 是否为去年
-         */
-        isLastYear: {
-          title: "是否去年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear - 1;
-          },
-        },
-
-        /**
-         * 是否为前年
-         */
-        isYearBeforeLast: {
-          title: "是否前年",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesYear) return false;
-            const currentYear = new Date().getFullYear();
-            return obj.salesYear === currentYear - 2;
-          },
-        },
-
-        /**
-         * 是否为本月
-         */
-        isCurrentMonth: {
-          title: "是否本月",
-          type: "computed",
-          compute: (obj) => {
-            if (!obj.salesDate) return false;
-            const date = validationEngine.parseDate(obj.salesDate);
-            if (!date) return false;
-            const today = new Date();
-            return (
-              date.getFullYear() === today.getFullYear() &&
-              date.getMonth() === today.getMonth()
-            );
           },
         },
 
@@ -1019,7 +952,7 @@ class DataConfig {
           type: "computed",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = validationEngine.parseDate(obj.salesDate);
+            const date = _validationEngine.parseDate(obj.salesDate);
             if (!date) return undefined;
 
             const today = new Date();
@@ -1224,15 +1157,14 @@ class DataConfig {
     return null;
   }
 
-  //
-  // _getISOWeekNumber(date) {
-  //   const d = new Date(date);
-  //   d.setHours(0, 0, 0, 0);
-  //   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  //   const week1 = new Date(d.getFullYear(), 0, 4);
-  //   return (
-  //     1 +
-  //     Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
-  //   );
-  // }
+  _getISOWeekNumber(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    return (
+      1 +
+      Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+    );
+  }
 }

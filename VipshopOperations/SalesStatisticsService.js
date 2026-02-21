@@ -59,7 +59,7 @@ class SalesStatisticsService {
     const end = endDate.getTime();
 
     return sales.filter((sale) => {
-      const saleDate = validationEngine.parseDate(sale.salesDate);
+      const saleDate = _validationEngine.parseDate(sale.salesDate);
       if (!saleDate) return false;
       const saleTime = saleDate.getTime();
       return saleTime >= start && saleTime <= end;
@@ -146,7 +146,7 @@ class SalesStatisticsService {
   getDaySales(itemNumber, date) {
     if (!itemNumber) return 0;
 
-    const dateStr = validationEngine.formatDate(date);
+    const dateStr = _validationEngine.formatDate(date);
 
     const sale = this._repository.findOne("ProductSales", {
       itemNumber: itemNumber,
@@ -191,7 +191,7 @@ class SalesStatisticsService {
 
       result.push({
         date: date,
-        dateStr: validationEngine.formatDate(date),
+        dateStr: _validationEngine.formatDate(date),
         sales: sales,
       });
     }

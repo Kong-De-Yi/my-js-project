@@ -41,7 +41,7 @@ class DataImportService {
     if (!entityName) {
       throw new Error(
         "无法识别导入数据的类型，请确保表头包含以下必填字段之一：\n" +
-          "- 销售数据：日期、货号、曝光UV、商详UV、加购UV、客户数、拒退件数、销售量、销售额、首次上架时间\n" +
+          "- 销售数据：日期、货号、曝光UV、商详UV、加购UV(加购用户数)、客户数、拒退件数、销售量、销售额、首次上架时间\n" +
           "- 常态商品：条码、货号、款号、颜色、尺码、三级品类、品牌SN、尺码状态、商品状态、市场价、唯品价、到手价、可售库存、可售天数、商品ID、P_SPU\n" +
           "- 组合商品：组合商品实体编码、商品编码、数量\n" +
           "- 商品库存：商品编码、数量、进货仓库存、后整车间、超卖车间、备货车间、销退仓库存、采购在途数\n",
@@ -61,10 +61,10 @@ class DataImportService {
 
     // 7. 验证数据
     const entityConfig = this._config.get(entityName);
-    const validationResult = validationEngine.validateAll(items, entityConfig);
+    const validationResult = _validationEngine.validateAll(items, entityConfig);
 
     if (!validationResult.valid) {
-      const errorMsg = validationEngine.formatErrors(
+      const errorMsg = _validationEngine.formatErrors(
         validationResult,
         entityConfig.worksheet,
       );
@@ -100,8 +100,17 @@ class DataImportService {
     };
   }
 
-  // 追加模式导入（销售数据）
+  // 追加模式导入
   _appendData(entityName, newItems) {
+    // 检查业务实体是否配置主键
+    const entityConfig = this._config.get(entityName);
+    const uniqueKeyConfig = this._config.parseUniqueKey(entityConfig.uniqueKey);
+    const fields = uniqueKeyConfig.fields;
+
+    if (fields.length === 0) {
+      throw new Error("追加模式导入的业务实体必须配置主键");
+    }
+
     // 读取历史数据
     let existingItems = [];
     existingItems = this._repository.findAll(entityName);
@@ -109,10 +118,8 @@ class DataImportService {
     // 建立索引：货号+日期
     const existingMap = new Map();
     existingItems.forEach((item) => {
-      if (item.itemNumber && item.salesDate) {
-        const key = `${item.itemNumber}|${item.salesDate}`;
-        existingMap.set(key, item);
-      }
+      const key = fields.map((field) => item[field]).join("|");
+      existingMap.set(key, item);
     });
 
     // 合并数据
@@ -121,7 +128,7 @@ class DataImportService {
     let newCount = 0;
 
     newItems.forEach((newItem) => {
-      const key = `${newItem.itemNumber}|${newItem.salesDate}`;
+      const key = fields.map((field) => newItem[field]).join("|");
 
       if (existingMap.has(key)) {
         // 更新
@@ -144,7 +151,6 @@ class DataImportService {
     // 保存
     this._repository.save(entityName, mergedItems);
 
-    const entityConfig = this._config.get(entityName);
     return {
       success: true,
       entityName: entityConfig.worksheet,
@@ -154,36 +160,5 @@ class DataImportService {
       updated: updatedCount,
       message: `销售数据导入完成：新增${newCount}条，更新${updatedCount}条`,
     };
-  }
-
-  /**
-   * 转换为数字
-   */
-  _toNumber(value) {
-    if (
-      value == undefined ||
-      String(value).trim() === "" ||
-      typeof value === "boolean"
-    ) {
-      return undefined;
-    }
-
-    const num = Number(value);
-    return isFinite(num) ? num : undefined;
-  }
-
-  /**
-   * 转换为字符串
-   */
-  _toString(value) {
-    if (
-      value == undefined ||
-      String(value).trim() === "" ||
-      typeof value === "boolean"
-    ) {
-      return undefined;
-    }
-
-    return String(value);
   }
 }
