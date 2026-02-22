@@ -7,6 +7,7 @@ class Repository {
   constructor(excelDAO) {
     this._excelDAO = excelDAO;
     this._config = DataConfig.getInstance();
+    this._validationEngine = ValidationEngine.getInstance();
 
     this._cache = new Map();
     this._indexes = new Map();
@@ -16,6 +17,72 @@ class Repository {
       brandConfig: null,
       profitCalculator: null,
     };
+  }
+
+  // 根据_indexConfigs建立业务实体的索引
+  _buildAllIndexes(entityName, data) {
+    if (!this._indexes.has(entityName)) {
+      this._indexes.set(entityName, new Map());
+    }
+
+    const entityIndexes = this._indexes.get(entityName);
+    let indexConfigs = this._indexConfigs.get(entityName) || [];
+
+    const entityConfig = this._config.get(entityName);
+
+    // 检查索引配置中是否有配置主键索引,没有则添加
+    if (entityConfig?.uniqueKey) {
+      const uniqueKeyConfig = this._config.parseUniqueKey(
+        entityConfig.uniqueKey,
+      );
+      const fields = uniqueKeyConfig.fields;
+
+      if (fields.length > 0) {
+        const exists = indexConfigs.some(
+          (config) =>
+            JSON.stringify([...config.fields].sort()) ===
+            JSON.stringify([...fields].sort()),
+        );
+
+        if (!exists) {
+          indexConfigs.push({
+            fields: fields,
+            unique: true,
+          });
+        }
+      }
+    }
+
+    indexConfigs.forEach((config) => {
+      const sortedFields = [...config.fields].sort();
+      const indexKey = sortedFields.join("|");
+
+      if (!entityIndexes.has(indexKey)) {
+        entityIndexes.set(indexKey, new Map());
+      }
+
+      const index = entityIndexes.get(indexKey);
+      index.clear();
+
+      data.forEach((item) => {
+        const value = this._getCompositeKey(item, sortedFields);
+
+        if (value != undefined && String(value).trim() !== "") {
+          if (config.unique) {
+            if (index.has(value)) {
+              item._indexError = `索引${indexKey}值"${value}"重复`;
+            } else {
+              index.set(value, item);
+            }
+          } else {
+            if (!index.has(value)) {
+              index.set(value, []);
+            }
+            index.get(value).push(item);
+          }
+        }
+      });
+    });
   }
 
   registerIndexes(entityName, indexConfigs) {
@@ -343,10 +410,13 @@ class Repository {
     }
 
     // 验证数据
-    const validationResult = _validationEngine.validateAll(data, entityConfig);
+    const validationResult = this._validationEngine.validateAll(
+      data,
+      entityConfig,
+    );
 
     if (!validationResult.valid) {
-      const errorMsg = _validationEngine.formatErrors(
+      const errorMsg = this._validationEngine.formatErrors(
         validationResult,
         entityConfig.worksheet,
       );
@@ -422,71 +492,6 @@ class Repository {
     });
 
     return condition;
-  }
-
-  _buildAllIndexes(entityName, data) {
-    if (!this._indexes.has(entityName)) {
-      this._indexes.set(entityName, new Map());
-    }
-
-    const entityIndexes = this._indexes.get(entityName);
-    let indexConfigs = this._indexConfigs.get(entityName) || [];
-
-    const entityConfig = this._config.get(entityName);
-
-    // 检查索引配置中是否有配置主键索引,没有则添加
-    if (entityConfig?.uniqueKey) {
-      const uniqueKeyConfig = this._config.parseUniqueKey(
-        entityConfig.uniqueKey,
-      );
-      const fields = uniqueKeyConfig.fields;
-
-      if (fields.length > 0) {
-        const exists = indexConfigs.some(
-          (config) =>
-            JSON.stringify([...config.fields].sort()) ===
-            JSON.stringify([...fields].sort()),
-        );
-
-        if (!exists) {
-          indexConfigs.push({
-            fields: fields,
-            unique: true,
-          });
-        }
-      }
-    }
-
-    indexConfigs.forEach((config) => {
-      const sortedFields = [...config.fields].sort();
-      const indexKey = sortedFields.join("|");
-
-      if (!entityIndexes.has(indexKey)) {
-        entityIndexes.set(indexKey, new Map());
-      }
-
-      const index = entityIndexes.get(indexKey);
-      index.clear();
-
-      data.forEach((item) => {
-        const value = this._getCompositeKey(item, sortedFields);
-
-        if (value != undefined && String(value).trim() !== "") {
-          if (config.unique) {
-            if (index.has(value)) {
-              item._indexError = `索引${indexKey}值"${value}"重复`;
-            } else {
-              index.set(value, item);
-            }
-          } else {
-            if (!index.has(value)) {
-              index.set(value, []);
-            }
-            index.get(value).push(item);
-          }
-        }
-      });
-    });
   }
 
   _queryByIndex(entityName, condition) {

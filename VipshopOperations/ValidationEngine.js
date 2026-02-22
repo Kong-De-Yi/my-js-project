@@ -4,7 +4,13 @@
 // ============================================================================
 
 class ValidationEngine {
+  static _instance = null;
+
   constructor() {
+    if (ValidationEngine._instance) {
+      return ValidationEngine._instance;
+    }
+
     this._config = DataConfig.getInstance();
 
     this._validators = {
@@ -148,6 +154,16 @@ class ValidationEngine {
         };
       },
     };
+
+    ValidationEngine._instance = this;
+  }
+
+  // 单例模式
+  static getInstance() {
+    if (!ValidationEngine._instance) {
+      ValidationEngine._instance = new ValidationEngine();
+    }
+    return ValidationEngine._instance;
   }
 
   // 返回字段的组合键值，多字段用 ¦ 连接

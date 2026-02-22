@@ -1,3 +1,42 @@
+let _excelDAO = null;
+let _repository = null;
+
+function _initializeServices() {
+  if (_repository) return;
+
+  try {
+    _excelDAO = new ExcelDAO();
+    _repository = new Repository(_excelDAO);
+
+    // 注册所有索引
+    const indexConfig = IndexConfig.getInstance();
+    for (const [entityName, indexConfigs] of Object.entries(
+      indexConfig.getAllIndexes(),
+    )) {
+      _repository.registerIndexes(entityName, indexConfigs);
+    }
+  } catch (e) {
+    MsgBox(`系统初始化失败：${e.message}`, 0, "错误");
+    throw e;
+  }
+}
+function UserForm1_CommandButton6_Click() {
+  try {
+    const dataImportService = new DataImportService(_repository, _excelDAO);
+    const result = dataImportService.import();
+    // 需要更新系统记录
+
+    MsgBox(result.message, 64, "导入成功");
+  } catch (err) {
+    MsgBox(`导入失败：${err.message}`, 16, "错误");
+  }
+}
+
+function Main() {
+  _initializeServices();
+  UserForm1.Show();
+}
+
 // let _repository = null;
 // let _excelDAO = null;
 // let _dataImportService = null;

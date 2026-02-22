@@ -113,6 +113,19 @@ class IndexConfig {
     }
   }
 
+  getAllIndexes() {
+    return {
+      Product: this.PRODUCT_INDEXES,
+      ProductPrice: this.PRODUCT_PRICE_INDEXES,
+      RegularProduct: this.REGULAR_PRODUCT_INDEXES,
+      Inventory: this.INVENTORY_INDEXES,
+      ComboProduct: this.COMBO_PRODUCT_INDEXES,
+      ProductSales: this.PRODUCT_SALES_INDEXES,
+      BrandConfig: this.BRAND_CONFIG_INDEXES,
+      ReportTemplate: this.REPORT_TEMPLATE_INDEXES,
+    };
+  }
+
   getRecommendedIndex(entityName, queryPattern) {
     const indexes = this.getIndexes(entityName);
 

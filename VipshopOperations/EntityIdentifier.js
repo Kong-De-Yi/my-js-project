@@ -37,7 +37,7 @@ class EntityIdentifier {
     return requiredTitles.every((title) => headers.includes(title));
   }
 
-  // 单例模式获取实体配置器对象
+  // 单例模式
   static getInstance() {
     if (!EntityIdentifier._instance) {
       EntityIdentifier._instance = new EntityIdentifier();
