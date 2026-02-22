@@ -1,8 +1,3 @@
-// ============================================================================
-// Repository.js - 数据仓库（增强版）
-// 功能：支持索引字段的自动计算和存储
-// ============================================================================
-
 class Repository {
   constructor(excelDAO) {
     this._excelDAO = excelDAO;
@@ -17,6 +12,21 @@ class Repository {
       brandConfig: null,
       profitCalculator: null,
     };
+  }
+
+  // 获取业务实体的fields组合键值，"¦"分隔
+  _getCompositeKey(item, fields) {
+    if (fields.length === 1) {
+      const value = item[fields[0]];
+      return value != undefined ? String(value) : "";
+    }
+
+    return fields
+      .map((f) => {
+        const value = item[f];
+        return value != undefined ? String(value) : "";
+      })
+      .join("¦");
   }
 
   // 根据_indexConfigs建立业务实体的索引
@@ -85,6 +95,150 @@ class Repository {
     });
   }
 
+  // 通过索引查询数据
+  _queryByIndex(entityName, condition) {
+    const entityIndexes = this._indexes.get(entityName);
+    if (!entityIndexes) return null;
+
+    const conditionFields = Object.keys(condition).sort();
+
+    // 1. 精确匹配
+    const exactMatchKey = conditionFields.join("|");
+    if (entityIndexes.has(exactMatchKey)) {
+      const index = entityIndexes.get(exactMatchKey);
+      const compositeValue = this._getCompositeKey(condition, conditionFields);
+
+      if (index.has(compositeValue)) {
+        const result = index.get(compositeValue);
+        return Array.isArray(result) ? result : [result];
+      }
+      return [];
+    }
+
+    // 2. 前缀匹配
+    for (let i = conditionFields.length; i > 0; i--) {
+      const prefixFields = conditionFields.slice(0, i);
+      const prefixKey = prefixFields.join("|");
+      const remainingFields = conditionFields.slice(i); // 剩余字段
+
+      if (entityIndexes.has(prefixKey)) {
+        const index = entityIndexes.get(prefixKey);
+        const results = [];
+
+        for (let [compositeValue, items] of index.entries()) {
+          // 解析前缀值
+          const prefixValues = compositeValue.split("¦");
+
+          // 检查前缀是否匹配
+          let prefixMatch = true;
+          for (let j = 0; j < prefixFields.length; j++) {
+            const field = prefixFields[j];
+            const prefixVal = prefixValues[j];
+
+            // 如果条件中该字段未定义，视为匹配
+            if (condition[field] != undefined) {
+              if (String(prefixVal) != String(condition[field])) {
+                prefixMatch = false;
+                break;
+              }
+            }
+          }
+
+          if (prefixMatch) {
+            // 对匹配前缀的记录，检查剩余条件
+            const records = Array.isArray(items) ? items : [items];
+
+            const matchedRecords = records.filter((record) => {
+              return remainingFields.every((field) => {
+                // 如果条件中没有这个字段，视为匹配
+                if (condition[field] == undefined) return true;
+                return record[field] == condition[field];
+              });
+            });
+
+            if (matchedRecords.length > 0) {
+              results.push(...matchedRecords);
+            }
+          }
+        }
+
+        if (results.length > 0) {
+          return results;
+        }
+      }
+    }
+
+    // 3. 没有可用索引，返回 null 让上层做全表扫描
+    return null;
+  }
+
+  // 遍历全表数据
+  _fullScan(data, condition) {
+    return data.filter((item) => {
+      return Object.entries(condition).every(([key, val]) => {
+        if (val == undefined) return true;
+        if (Array.isArray(val)) {
+          return val.includes(item[key]);
+        }
+        return item[key] == val;
+      });
+    });
+  }
+
+  // 计算业务实体的计算字段
+  _computeFields(data, entityConfig) {
+    const computedFields = {};
+
+    Object.entries(entityConfig.fields).forEach(([key, config]) => {
+      if (config.type === "computed" && config.compute) {
+        computedFields[key] = config.compute;
+      }
+    });
+
+    if (Object.keys(computedFields).length === 0) {
+      return;
+    }
+
+    data.forEach((item) => {
+      Object.entries(computedFields).forEach(([key, computeFn]) => {
+        try {
+          // 为计算函数提供上下文
+          item[key] = computeFn(item, this._context);
+        } catch (e) {
+          // 计算失败时不设置值
+        }
+      });
+    });
+  }
+
+  // 应用字段默认值
+  _applyDefaultValues(item, entityConfig) {
+    Object.entries(entityConfig.fields).forEach(([fieldName, fieldConfig]) => {
+      // 如果字段没有值且有默认值配置
+      if (item[fieldName] === undefined && fieldConfig.default !== undefined) {
+        // 如果默认值是函数，则调用它
+        if (typeof fieldConfig.default === "function") {
+          item[fieldName] = fieldConfig.default(item);
+        } else {
+          item[fieldName] = fieldConfig.default;
+        }
+      }
+    });
+  }
+
+  // 判断两条记录是否相同（基于唯一键）
+  _isSameRecord(record1, record2, entityConfig) {
+    if (entityConfig.uniqueKey) {
+      const uniqueKeyConfig = this._config.parseUniqueKey(
+        entityConfig.uniqueKey,
+      );
+      return uniqueKeyConfig.fields.every(
+        (field) => record1[field] === record2[field],
+      );
+    }
+  }
+
+  // 注册实体对象的索引
   registerIndexes(entityName, indexConfigs) {
     this._indexConfigs.set(entityName, indexConfigs || []);
 
@@ -94,6 +248,7 @@ class Repository {
     }
   }
 
+  // 设置上下文环境
   setContext(context) {
     Object.assign(this._context, context);
   }
@@ -127,6 +282,7 @@ class Repository {
     return this.getBrandConfigMap();
   }
 
+  // 从缓存中查询业务实体的所有数据，没有则从工作表读取并建立缓存和索引
   findAll(entityName) {
     if (this._cache.has(entityName)) {
       return this._cache.get(entityName);
@@ -139,15 +295,15 @@ class Repository {
 
     const data = this._excelDAO.read(entityName);
 
-    // 计算计算字段（包括索引字段）
+    // 计算计算字段
     this._computeFields(data, entityConfig);
-
     this._cache.set(entityName, data);
     this._buildAllIndexes(entityName, data);
 
     return data;
   }
 
+  // 查询符合条件的实体对象（优先索引）
   find(entityName, condition) {
     const data = this.findAll(entityName);
 
@@ -155,38 +311,17 @@ class Repository {
       return data;
     }
 
+    // 优先通过索引查询数据
     const indexedResult = this._queryByIndex(entityName, condition);
     if (indexedResult != null) {
       return indexedResult;
     }
 
+    // 索引无数据遍历全表
     return this._fullScan(data, condition);
   }
 
-  findOne(entityName, condition) {
-    const entityConfig = this._config.get(entityName);
-
-    if (entityConfig?.uniqueKey) {
-      const uniqueKeyConfig = this._config.parseUniqueKey(
-        entityConfig.uniqueKey,
-      );
-      const fields = uniqueKeyConfig.fields;
-
-      const hasAllFields = fields.every((f) => condition[f] != undefined);
-
-      if (hasAllFields && Object.keys(condition).length === fields.length) {
-        const indexResult = this._queryByIndex(entityName, condition);
-        if (indexResult && indexResult.length > 0) {
-          return indexResult[0];
-        }
-        return null;
-      }
-    }
-
-    const results = this.find(entityName, condition);
-    return results.length > 0 ? results[0] : null;
-  }
-
+  // 复杂查询（全表查询，支持条件过滤，排序，分页）
   query(entityName, options = {}) {
     let results = this.findAll(entityName);
 
@@ -274,135 +409,7 @@ class Repository {
     return results;
   }
 
-  // ==================== 快捷查询方法 ====================
-
-  findProductByItemNumber(itemNumber) {
-    return this.findOne("Product", { itemNumber });
-  }
-
-  findProducts(query = {}) {
-    return this.find("Product", query);
-  }
-
-  findProductsByStyle(styleNumber) {
-    return this.find("Product", { styleNumber });
-  }
-
-  findProductsByBrandAndStatus(brandSN, itemStatus) {
-    return this.find("Product", { brandSN, itemStatus });
-  }
-
-  findProductsBySPU(P_SPU) {
-    return this.find("Product", { P_SPU });
-  }
-
-  findPriceByItemNumber(itemNumber) {
-    return this.findOne("ProductPrice", { itemNumber });
-  }
-
-  findRegularProducts(query = {}) {
-    return this.find("RegularProduct", query);
-  }
-
-  findInventory(productCode) {
-    return this.findOne("Inventory", { productCode });
-  }
-
-  findComboProducts(productCode) {
-    return this.find("ComboProduct", { productCode });
-  }
-
-  findProductSales(query = {}) {
-    return this.find("ProductSales", query);
-  }
-
-  findSalesByYear(year) {
-    return this.find("ProductSales", { salesYear: year });
-  }
-
-  findSalesByYearMonth(yearMonth) {
-    return this.find("ProductSales", { yearMonth: yearMonth });
-  }
-
-  findSalesByItemAndYear(itemNumber, year) {
-    return this.find("ProductSales", {
-      itemNumber: itemNumber,
-      salesYear: year,
-    });
-  }
-
-  findSalesByItemAndYearMonth(itemNumber, yearMonth) {
-    return this.find("ProductSales", {
-      itemNumber: itemNumber,
-      yearMonth: yearMonth,
-    });
-  }
-
-  findSalesLastNDays(days) {
-    return this.query("ProductSales", {
-      filter: {
-        daysSinceSale: { $lte: days },
-      },
-      sort: { field: "salesDate", order: "asc" },
-    });
-  }
-
-  getSystemRecord() {
-    const records = this.findAll("SystemRecord");
-    if (records.length > 0) {
-      return records[0];
-    }
-
-    const newRecord = {
-      recordId: "SYSTEM_RECORD_1",
-      updateDateOfLast7Days: "",
-      updateDateOfProductPrice: "",
-      updateDateOfRegularProduct: "",
-      updateDateOfInventory: "",
-      updateDateOfProductSales: "",
-      _rowNumber: 1,
-    };
-
-    this._cache.set("SystemRecord", [newRecord]);
-    return newRecord;
-  }
-
-  findLowStockProducts(threshold = 30) {
-    return this.query("Product", {
-      filter: {
-        sellableDays: { $lt: threshold },
-        itemStatus: { $in: ["商品上线", "部分上线"] },
-      },
-      sort: { field: "sellableDays", order: "asc" },
-    });
-  }
-
-  findHighProfitProducts(minProfit = 10, minRate = 0.3) {
-    return this.query("Product", {
-      filter: (item) =>
-        (item.profit || 0) >= minProfit && (item.profitRate || 0) >= minRate,
-      sort: [
-        { field: "profit", order: "desc" },
-        { field: "profitRate", order: "desc" },
-      ],
-    });
-  }
-
-  findSalesByDateRange(startDate, endDate) {
-    const start = validationEngine.parseDate(startDate)?.getTime() || 0;
-    const end = validationEngine.parseDate(endDate)?.getTime() || Infinity;
-
-    return this.query("ProductSales", {
-      filter: (item) => {
-        const date = validationEngine.parseDate(item.salesDate)?.getTime() || 0;
-        return date >= start && date <= end;
-      },
-      sort: { field: "salesDate", order: "asc" },
-    });
-  }
-
-  // ==================== 数据修改方法 ====================
-
+  // 保存业务实体数据到工作表并更新缓存和索引
   save(entityName, data) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
@@ -423,30 +430,36 @@ class Repository {
       throw new Error(errorMsg);
     }
 
-    // 计算计算字段（包括索引字段）
+    // 计算计算字段
     this._computeFields(data, entityConfig);
-
     this._excelDAO.write(entityName, data);
-
     this._cache.set(entityName, data);
     this._buildAllIndexes(entityName, data);
 
     return data;
   }
 
+  // 删除整个业务实体数据
   clear(entityName) {
     this._excelDAO.clear(entityName);
     this._cache.delete(entityName);
     this._indexes.delete(entityName);
   }
 
+  // 清空所有缓存和索引数据
+  clearAllCache() {
+    this._cache.clear();
+    this._indexes.clear();
+  }
+
+  // 刷新缓存和索引中的业务实体数据
   refresh(entityName) {
     this._cache.delete(entityName);
     this._indexes.delete(entityName);
     return this.findAll(entityName);
   }
 
-  // 批量保存多个实体数据
+  // 批量保存多个不同业务实体数据
   transaction(operations) {
     const results = {};
     const errors = [];
@@ -466,177 +479,435 @@ class Repository {
     return results;
   }
 
-  // ==================== 私有辅助方法 ====================
+  // ==================== 数据修改操作 ====================
 
-  _getCompositeKey(item, fields) {
-    if (fields.length === 1) {
-      const value = item[fields[0]];
-      return value != undefined ? String(value) : "";
+  // 新增一条记录
+  add(entityName, item, options = {}) {
+    const entityConfig = this._config.get(entityName);
+    if (!entityConfig) {
+      throw new Error(`未知业务实体：${entityName}`);
     }
 
-    return fields
-      .map((f) => {
-        const value = item[f];
-        return value != undefined ? String(value) : "";
-      })
-      .join("¦");
+    // 获取当前数据
+    const currentData = this.findAll(entityName);
+
+    // 自动生成行号
+    const maxRowNumber = currentData.reduce(
+      (max, item) => Math.max(max, item._rowNumber || 0),
+      0,
+    );
+    item._rowNumber = maxRowNumber + 1;
+
+    // 处理默认值
+    this._applyDefaultValues(item, entityConfig);
+
+    // 验证单条数据
+    const validationResult = this._validationEngine.validateEntity(
+      item,
+      entityConfig,
+      { allData: currentData }, // 传入现有数据用于唯一性验证
+    );
+
+    if (!validationResult.valid) {
+      const errorMsg = this._validationEngine.formatErrors(
+        validationResult,
+        entityConfig.worksheet,
+      );
+      throw new Error(errorMsg);
+    }
+
+    if (options.validateOnly) {
+      return item;
+    }
+
+    // 添加到数据集中
+    currentData.push(item);
+
+    // 保存所有数据
+    return this.save(entityName, currentData);
   }
 
-  _parseCompositeKey(indexKey, compositeValue) {
-    const fields = indexKey.split("|");
-    const values = String(compositeValue).split("¦");
+  // 批量新增多条记录
+  addMany(entityName, items, options = {}) {
+    if (!Array.isArray(items)) {
+      throw new Error("items 必须是数组");
+    }
 
+    const entityConfig = this._config.get(entityName);
+    if (!entityConfig) {
+      throw new Error(`未知实体：${entityName}`);
+    }
+
+    const currentData = this.findAll(entityName);
+    const maxRowNumber = currentData.reduce(
+      (max, item) => Math.max(max, item._rowNumber || 0),
+      0,
+    );
+
+    const newItems = [];
+    const errors = [];
+
+    items.forEach((newItem, index) => {
+      try {
+        // 生成行号
+        newItem._rowNumber = maxRowNumber + index + 1;
+
+        // 处理默认值
+        this._applyDefaultValues(newItem, entityConfig);
+
+        // 提前验证数据
+        const validationResult = this._validationEngine.validateEntity(
+          newItem,
+          entityConfig,
+          { allData: [...currentData, ...newItems] }, // 包括之前验证通过的新记录
+        );
+
+        if (!validationResult.valid) {
+          throw new Error(
+            this._validationEngine.formatErrors(
+              validationResult,
+              entityConfig.worksheet,
+            ),
+          );
+        }
+
+        newItems.push(newItem);
+      } catch (e) {
+        errors.push(`第${index + 1}条记录：${e.message}`);
+      }
+    });
+
+    if (errors.length > 0) {
+      throw new Error(`批量新增失败：\n${errors.join("\n")}`);
+    }
+
+    if (options.validateOnly) {
+      return newItems;
+    }
+
+    // 合并并保存
+    const updatedData = [...currentData, ...newItems];
+    return this.save(entityName, updatedData);
+  }
+
+  // 更新一条记录
+  update(entityName, condition, updates, options = {}) {
+    const entityConfig = this._config.get(entityName);
+    if (!entityConfig) {
+      throw new Error(`未知实体：${entityName}`);
+    }
+
+    // 查找要更新的记录
+    const records = this.find(entityName, condition);
+
+    if (records.length === 0) {
+      if (options.upsert) {
+        // 如果没找到且 upsert 为 true，则新增
+        const newItem = { ...condition, ...updates };
+        return this.add(entityName, newItem);
+      }
+      throw new Error(`未找到符合条件的记录`);
+    }
+
+    if (records.length > 1 && !options.multi) {
+      throw new Error(`找到多条记录，请使用更精确的条件或设置 { multi: true }`);
+    }
+
+    const currentData = this.findAll(entityName);
+    const updatedRecords = [];
+    const errors = [];
+
+    records.forEach((record) => {
+      try {
+        // 找到原记录在数组中的索引
+        const index = currentData.findIndex((item) =>
+          this._isSameRecord(item, record, entityConfig),
+        );
+
+        if (index === -1) {
+          throw new Error("记录状态异常，请刷新后重试");
+        }
+
+        // 创建更新后的记录
+        const updatedRecord = {
+          ...currentData[index],
+          ...updates,
+          _rowNumber: currentData[index]._rowNumber, // 保持行号不变
+        };
+
+        // 替换原记录
+        currentData[index] = updatedRecord;
+        updatedRecords.push(updatedRecord);
+      } catch (e) {
+        errors.push(e.message);
+      }
+    });
+
+    if (errors.length > 0) {
+      throw new Error(`更新失败：\n${errors.join("\n")}`);
+    }
+
+    if (options.validateOnly) {
+      return updatedRecords;
+    }
+
+    // 保存
+    return this.save(entityName, currentData);
+  }
+
+  // 批量更新（根据条件批量更新记录）
+  updateMany(entityName, condition, updates) {
+    return this.update(entityName, condition, updates, { multi: true });
+  }
+
+  // 插入或更新一条记录（存在则更新，不存在则插入,通过主键或指定字段确认唯一性）
+  upsert(entityName, item, uniqueFields) {
+    const entityConfig = this._config.get(entityName);
+    if (!entityConfig) {
+      throw new Error(`未知实体：${entityName}`);
+    }
+
+    // 如果没有指定唯一字段，使用实体的唯一键
+    if (!uniqueFields && entityConfig.uniqueKey) {
+      const uniqueKeyConfig = this._config.parseUniqueKey(
+        entityConfig.uniqueKey,
+      );
+      uniqueFields = uniqueKeyConfig.fields;
+    }
+
+    if (!uniqueFields || uniqueFields.length === 0) {
+      throw new Error("请指定用于判断唯一性的字段");
+    }
+
+    // 构建查询条件
     const condition = {};
-    fields.forEach((field, i) => {
-      condition[field] = values[i] === "" ? undefined : values[i];
-    });
-
-    return condition;
-  }
-
-  _queryByIndex(entityName, condition) {
-    const entityIndexes = this._indexes.get(entityName);
-    if (!entityIndexes) return null;
-
-    const conditionFields = Object.keys(condition).sort();
-
-    // 1. 精确匹配
-    const exactMatchKey = conditionFields.join("|");
-    if (entityIndexes.has(exactMatchKey)) {
-      const index = entityIndexes.get(exactMatchKey);
-      const compositeValue = this._getCompositeKey(condition, conditionFields);
-
-      if (index.has(compositeValue)) {
-        const result = index.get(compositeValue);
-        return Array.isArray(result) ? result : [result];
+    uniqueFields.forEach((field) => {
+      if (item[field] === undefined) {
+        throw new Error(`唯一字段 ${field} 在数据中不存在`);
       }
-      return [];
+      condition[field] = item[field];
+    });
+
+    // 查找是否存在
+    const existing = this.find(entityName, condition);
+
+    if (existing.length > 1) {
+      throw new Error(`找到多条记录，无法确定更新哪一条`);
     }
 
-    // 2. 前缀匹配
-    for (let i = conditionFields.length; i > 0; i--) {
-      const prefixFields = conditionFields.slice(0, i);
-      const prefixKey = prefixFields.join("|");
-      const remainingFields = conditionFields.slice(i); // 剩余字段
-
-      if (entityIndexes.has(prefixKey)) {
-        const index = entityIndexes.get(prefixKey);
-        const results = [];
-
-        for (let [compositeValue, items] of index.entries()) {
-          // 解析前缀值
-          const prefixValues = compositeValue.split("¦");
-
-          // 检查前缀是否匹配
-          let prefixMatch = true;
-          for (let j = 0; j < prefixFields.length; j++) {
-            const field = prefixFields[j];
-            const prefixVal = prefixValues[j];
-
-            // 如果条件中该字段未定义，视为匹配
-            if (condition[field] != undefined) {
-              if (String(prefixVal) != String(condition[field])) {
-                prefixMatch = false;
-                break;
-              }
-            }
-          }
-
-          if (prefixMatch) {
-            // 对匹配前缀的记录，检查剩余条件
-            const records = Array.isArray(items) ? items : [items];
-
-            const matchedRecords = records.filter((record) => {
-              return remainingFields.every((field) => {
-                // 如果条件中没有这个字段，视为匹配
-                if (condition[field] == undefined) return true;
-                return record[field] == condition[field];
-              });
-            });
-
-            if (matchedRecords.length > 0) {
-              results.push(...matchedRecords);
-            }
-          }
-        }
-
-        if (results.length > 0) {
-          return results;
-        }
-      }
+    if (existing.length === 1) {
+      // 更新
+      const result = this.update(entityName, condition, item);
+      return Array.isArray(result) ? result[0] : result;
+    } else {
+      // 新增
+      return this.add(entityName, item);
     }
-
-    // 3. 没有可用索引，返回 null 让上层做全表扫描
-    return null;
   }
 
-  _fullScan(data, condition) {
-    return data.filter((item) => {
-      return Object.entries(condition).every(([key, val]) => {
-        if (val == undefined) return true;
-        if (Array.isArray(val)) {
-          return val.includes(item[key]);
-        }
-        return item[key] == val;
-      });
+  // 删除记录
+  delete(entityName, condition, options = {}) {
+    const entityConfig = this._config.get(entityName);
+    if (!entityConfig) {
+      throw new Error(`未知实体：${entityName}`);
+    }
+
+    // 查找要删除的记录
+    const recordsToDelete = this.find(entityName, condition);
+
+    if (recordsToDelete.length === 0) {
+      return 0;
+    }
+
+    if (recordsToDelete.length > 1 && !options.multi) {
+      throw new Error(`找到多条记录，请使用更精确的条件或设置 { multi: true }`);
+    }
+
+    const currentData = this.findAll(entityName);
+
+    // 过滤掉要删除的记录
+    const newData = currentData.filter((item) => {
+      const shouldDelete = recordsToDelete.some((record) =>
+        this._isSameRecord(item, record, entityConfig),
+      );
+      return !shouldDelete;
+    });
+
+    if (newData.length === currentData.length) {
+      return 0;
+    }
+
+    // 保存
+    this.save(entityName, newData);
+
+    return currentData.length - newData.length;
+  }
+
+  // ==================== 快捷查询方法 ====================
+
+  // 获取所有（符合条件）产品
+  findProducts(query = {}) {
+    return this.find("Product", query);
+  }
+  // 通过货号获取产品
+  findProductByItemNumber(itemNumber) {
+    return this.find("Product", { itemNumber });
+  }
+  // 通过款号获取产品
+  findProductsByStyle(styleNumber) {
+    return this.find("Product", { styleNumber });
+  }
+  // 通过商品状态获取产品
+  findProductsByStatus(itemStatus) {
+    return this.find("Product", { itemStatus });
+  }
+  // 获取上线产品可售库存低于指定数量的产品
+  findLowStockProducts(threshold = 30) {
+    return this.query("Product", {
+      filter: {
+        sellableInventory: { $lt: threshold },
+        itemStatus: { $in: ["商品上线", "部分上线"] },
+      },
+      sort: { field: "sellableInventory", order: "asc" },
+    });
+  }
+  // 获取低毛利产品
+  findLowProfitProducts(minProfit = 5) {
+    return this.query("Product", {
+      filter: (item) => (item.profit || 0) < minProfit,
+      sort: [{ field: "profit", order: "desc" }],
+    });
+  }
+  // 获取低毛利率产品
+  findLowProfitRateProducts(minRate = 0.35) {
+    return this.query("Product", {
+      filter: (item) => (item.profitRate || 0) < minRate,
+      sort: [{ field: "profitRate", order: "desc" }],
     });
   }
 
-  /**
-   * 计算计算字段（包括索引字段）
-   * @param {Array} data - 数据数组
-   * @param {Object} entityConfig - 实体配置
-   * @private
-   */
-  _computeFields(data, entityConfig) {
-    const computedFields = {};
+  // 通过货号获取产品价格
+  findPriceByItemNumber(itemNumber) {
+    return this.findOne("ProductPrice", { itemNumber });
+  }
 
-    Object.entries(entityConfig.fields).forEach(([key, config]) => {
-      if (config.type === "computed" && config.compute) {
-        computedFields[key] = config.compute;
-      }
+  // 获取所有（符合条件）的常态商品
+  findRegularProducts(query = {}) {
+    return this.find("RegularProduct", query);
+  }
+
+  // 通过条码获取库存
+  findInventory(productCode) {
+    return this.find("Inventory", { productCode });
+  }
+
+  // 通过条码获取组合商品
+  findComboProducts(productCode) {
+    return this.find("ComboProduct", { productCode });
+  }
+
+  // 获取所有（符合条件）的商品销售
+  findProductSales(query = {}) {
+    return this.find("ProductSales", query);
+  }
+  // 获取指定年份的商品销售
+  findSalesByYear(year) {
+    return this.find("ProductSales", { salesYear: year });
+  }
+  // 获取指定年月的商品销售
+  findSalesByYearMonth(yearMonth) {
+    return this.find("ProductSales", { yearMonth: yearMonth });
+  }
+  // 获取指定货号在某个年份的销售
+  findSalesByItemAndYear(itemNumber, year) {
+    return this.find("ProductSales", {
+      itemNumber: itemNumber,
+      salesYear: year,
     });
+  }
+  // 获取指定货号在某个年月的销售
+  findSalesByItemAndYearMonth(itemNumber, yearMonth) {
+    return this.find("ProductSales", {
+      itemNumber: itemNumber,
+      yearMonth: yearMonth,
+    });
+  }
+  // 获取最近N天的商品销售
+  findSalesLastNDays(days) {
+    return this.query("ProductSales", {
+      filter: {
+        daysSinceSale: { $lte: days },
+      },
+      sort: { field: "salesDate", order: "asc" },
+    });
+  }
+  // 获取指定时间段的商品销售
+  findSalesByDateRange(startDate, endDate) {
+    const start = this._excelDAO.parseDate(startDate)?.getTime() || 0;
+    const end = this._excelDAO.parseDate(endDate)?.getTime() || Infinity;
 
-    if (Object.keys(computedFields).length === 0) {
-      return;
-    }
-
-    data.forEach((item) => {
-      Object.entries(computedFields).forEach(([key, computeFn]) => {
-        try {
-          // 为计算函数提供上下文
-          item[key] = computeFn(item, this._context);
-        } catch (e) {
-          // 计算失败时不设置值
-        }
-      });
+    return this.query("ProductSales", {
+      filter: (item) => {
+        const date = this._excelDAO.parseDate(item.salesDate)?.getTime() || 0;
+        return date >= start && date <= end;
+      },
+      sort: { field: "salesDate", order: "asc" },
     });
   }
 
-  getIndexStats(entityName) {
-    const entityIndexes = this._indexes.get(entityName);
-    if (!entityIndexes) {
-      return { hasIndexes: false };
+  // 获取系统记录
+  getSystemRecord() {
+    const records = this.findAll("SystemRecord");
+    if (records.length > 0) {
+      return records[0];
     }
 
-    const stats = {
-      hasIndexes: true,
-      indexes: [],
+    const newRecord = {
+      updateDateOfLast7Days: "",
+      updateDateOfProductPrice: "",
+      updateDateOfRegularProduct: "",
+      updateDateOfInventory: "",
+      updateDateOfProductSales: "",
+      _rowNumber: 1,
     };
 
-    for (let [indexKey, index] of entityIndexes.entries()) {
-      stats.indexes.push({
-        key: indexKey,
-        size: index.size,
-        fields: indexKey.split("|"),
-      });
-    }
-
-    return stats;
+    this._cache.set("SystemRecord", [newRecord]);
+    return newRecord;
   }
 
-  clearAllCache() {
-    this._cache.clear();
-    this._indexes.clear();
-  }
+  // ==================== 私有辅助方法 ====================
+
+  // _parseCompositeKey(indexKey, compositeValue) {
+  //   const fields = indexKey.split("|");
+  //   const values = String(compositeValue).split("¦");
+
+  //   const condition = {};
+  //   fields.forEach((field, i) => {
+  //     condition[field] = values[i] === "" ? undefined : values[i];
+  //   });
+
+  //   return condition;
+  // }
+
+  // getIndexStats(entityName) {
+  //   const entityIndexes = this._indexes.get(entityName);
+  //   if (!entityIndexes) {
+  //     return { hasIndexes: false };
+  //   }
+
+  //   const stats = {
+  //     hasIndexes: true,
+  //     indexes: [],
+  //   };
+
+  //   for (let [indexKey, index] of entityIndexes.entries()) {
+  //     stats.indexes.push({
+  //       key: indexKey,
+  //       size: index.size,
+  //       fields: indexKey.split("|"),
+  //     });
+  //   }
+
+  //   return stats;
+  // }
 }

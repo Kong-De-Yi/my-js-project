@@ -10,10 +10,7 @@ class ProductService {
     this._config = DataConfig.getInstance();
   }
 
-  /**
-   * 从常态商品更新产品信息
-   * @returns {Object} 更新结果统计
-   */
+  // 从常态商品更新数据
   updateFromRegularProducts() {
     const result = {
       totalProducts: 0,

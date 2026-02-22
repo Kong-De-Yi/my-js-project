@@ -78,6 +78,6 @@ class EntityIdentifier {
     if (!this.canImport(entityName)) return null;
 
     const entity = this._config.get(entityName);
-    return entity?.importMode ? entity?.importMode : null;
+    return entity?.importMode || null;
   }
 }

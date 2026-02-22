@@ -1,5 +1,6 @@
 let _excelDAO = null;
 let _repository = null;
+let _dataImportService = null;
 
 function _initializeServices() {
   if (_repository) return;
@@ -7,6 +8,8 @@ function _initializeServices() {
   try {
     _excelDAO = new ExcelDAO();
     _repository = new Repository(_excelDAO);
+
+    _dataImportService = new DataImportService(_repository, _excelDAO);
 
     // 注册所有索引
     const indexConfig = IndexConfig.getInstance();
@@ -22,9 +25,9 @@ function _initializeServices() {
 }
 function UserForm1_CommandButton6_Click() {
   try {
-    const dataImportService = new DataImportService(_repository, _excelDAO);
-    const result = dataImportService.import();
-    // 需要更新系统记录
+    const result = _dataImportService.import();
+
+    _repository.clear("ImportData");
 
     MsgBox(result.message, 64, "导入成功");
   } catch (err) {

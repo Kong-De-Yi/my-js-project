@@ -39,6 +39,20 @@ class DataImportService {
       throw new Error("追加模式导入的业务实体必须配置主键");
     }
 
+    // 提前验证新数据
+    const validationResult = this._validationEngine.validateAll(
+      newItems,
+      entityConfig,
+    );
+
+    if (!validationResult.valid) {
+      const errorMsg = this._validationEngine.formatErrors(
+        validationResult,
+        entityConfig.worksheet,
+      );
+      throw new Error(errorMsg);
+    }
+
     // 读取历史数据
     let existingItems = [];
     existingItems = this._repository.findAll(entityName);
@@ -141,31 +155,13 @@ class DataImportService {
     // 6. 读取数据
     const items = this._excelDAO.read(entityName, "导入数据");
 
-    // 7. 验证数据
-    const entityConfig = this._config.get(entityName);
-    const validationResult = this._validationEngine.validateAll(
-      items,
-      entityConfig,
-    );
-
-    if (!validationResult.valid) {
-      const errorMsg = this._validationEngine.formatErrors(
-        validationResult,
-        entityConfig.worksheet,
-      );
-      throw new Error(errorMsg);
-    }
-
-    // 8. 根据模式处理数据
+    // 7. 根据模式处理数据
     let result;
     if (mode === "append") {
       result = this._appendData(entityName, items);
     } else {
       result = this._overwriteData(entityName, items);
     }
-
-    // 9. 清空导入数据表
-    this._excelDAO.clear("ImportData");
 
     return result;
   }
