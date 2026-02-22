@@ -72,10 +72,6 @@ class Repository {
 
     const data = this._excelDAO.read(entityName);
 
-    if (entityName === "SystemRecord" && data.length > 0 && !data[0].recordId) {
-      data[0].recordId = "SYSTEM_RECORD_1";
-    }
-
     // 计算计算字段（包括索引字段）
     this._computeFields(data, entityConfig);
 
@@ -345,33 +341,6 @@ class Repository {
     if (!entityConfig) {
       throw new Error(`未知实体：${entityName}`);
     }
-
-    if (entityName === "SystemRecord" && data.length > 0) {
-      data.forEach((item, index) => {
-        if (!item.recordId) {
-          item.recordId = `SYSTEM_RECORD_${index + 1}`;
-        }
-      });
-    }
-
-    // 日期字段标准化
-    data.forEach((item) => {
-      Object.entries(entityConfig.fields).forEach(
-        ([fieldName, fieldConfig]) => {
-          if (
-            fieldConfig.type === "date" ||
-            fieldConfig.validators?.some((v) => v.type === "date")
-          ) {
-            if (item[fieldName]) {
-              const date = _validationEngine.parseDate(item[fieldName]);
-              if (date) {
-                item[fieldName] = _validationEngine.formatDate(date);
-              }
-            }
-          }
-        },
-      );
-    });
 
     // 验证数据
     const validationResult = _validationEngine.validateAll(data, entityConfig);

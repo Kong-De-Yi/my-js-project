@@ -11,7 +11,7 @@ class DataConfig {
       return DataConfig._instance;
     }
 
-    this.APPNAME = "商品运营表";
+    this.APP_NAME = "商品运营表";
 
     // ========== 1. 货号总表实体配置 ==========
     this.PRODUCT = {
@@ -31,7 +31,7 @@ class DataConfig {
         },
         firstListingTime: {
           title: "首次上架时间",
-          type: "string",
+          type: "date",
           validators: [{ type: "date" }],
         },
         salesAge: {
@@ -547,22 +547,24 @@ class DataConfig {
     // ========== 3. 常态商品实体 ==========
     this.REGULAR_PRODUCT = {
       worksheet: "常态商品",
-      requiredFields: [
-        "productCode",
-        "itemNumber",
-        "styleNumber",
-        "color",
-        "size",
-        "thirdLevelCategory",
-        "brandSN",
-        "sizeStatus",
-        "itemStatus",
-        "tagPrice",
-        "vipshopPrice",
-        "finalPrice",
-        "sellableInventory",
-        "sellableDays",
-        "MID",
+      canImport: true,
+      importMode: "overwrite",
+      requiredTitles: [
+        "条码",
+        "货号",
+        "款号",
+        "颜色",
+        "尺码",
+        "三级品类",
+        "品牌SN",
+        "尺码状态",
+        "商品状态",
+        "市场价",
+        "唯品价",
+        "到手价",
+        "可售库存",
+        "可售天数",
+        "商品ID",
         "P_SPU",
       ],
       uniqueKey: "productCode",
@@ -738,15 +740,17 @@ class DataConfig {
     // ========== 4. 库存实体 ==========
     this.INVENTORY = {
       worksheet: "商品库存",
-      requiredFields: [
-        "productCode",
-        "mainInventory",
-        "incomingInventory",
-        "finishingInventory",
-        "oversoldInventory",
-        "prepareInventory",
-        "returnInventory",
-        "purchaseInventory",
+      canImport: true,
+      importMode: "overwrite",
+      requiredTitles: [
+        "商品编码",
+        "数量",
+        "进货仓库存",
+        "后整车间",
+        "超卖车间",
+        "备货车间",
+        "销退仓库存",
+        "采购在途数",
       ],
       uniqueKey: "productCode",
       fields: {
@@ -796,7 +800,9 @@ class DataConfig {
     // ========== 5. 组合商品实体 ==========
     this.COMBO_PRODUCT = {
       worksheet: "组合商品",
-      requiredFields: ["productCode", "subProductCode", "subProductQuantity"],
+      canImport: true,
+      importMode: "overwrite",
+      requiredTitles: ["组合商品实体编码", "商品编码", "数量"],
       uniqueKey: {
         fields: ["productCode", "subProductCode"],
         message: "组合商品实体编码与子商品编码组合必须唯一",
@@ -826,17 +832,19 @@ class DataConfig {
     // ========== 6. 商品销售实体（增强版 - 添加索引字段）==========
     this.PRODUCT_SALES = {
       worksheet: "商品销售",
-      requiredFields: [
-        "salesDate",
-        "itemNumber",
-        "exposureUV",
-        "productDetailsUV",
-        "addToCartUV",
-        "customerCount",
-        "rejectAndReturnCount",
-        "salesQuantity",
-        "salesAmount",
-        "firstListingTime",
+      canImport: true,
+      importMode: "append",
+      requiredTitles: [
+        "日期",
+        "货号",
+        "曝光UV",
+        "商详UV",
+        "加购UV(加购用户数)",
+        "客户数",
+        "拒退件数",
+        "销售量",
+        "销售额",
+        "首次上架时间",
       ],
       uniqueKey: {
         fields: ["itemNumber", "salesDate"],
@@ -846,7 +854,7 @@ class DataConfig {
         // ----- 基础字段 -----
         salesDate: {
           title: "日期",
-          type: "string",
+          type: "date",
           validators: [{ type: "required" }, { type: "date" }],
         },
         itemNumber: {
@@ -891,7 +899,7 @@ class DataConfig {
         },
         firstListingTime: {
           title: "首次上架时间",
-          type: "string",
+          type: "date",
           validators: [{ type: "date" }],
         },
 
@@ -904,6 +912,7 @@ class DataConfig {
         salesYear: {
           title: "所属年份",
           type: "computed",
+          persist: false,
           validators: [{ type: "required" }],
           description: "从销售日期中提取年份，用于快速筛选",
           compute: (obj) => {
@@ -916,6 +925,7 @@ class DataConfig {
         yearMonth: {
           title: "年月",
           type: "computed",
+          persist: false,
           validators: [{ type: "required" }],
           description: "年月组合（YYYY-MM），用于快速筛选",
           compute: (obj) => {
@@ -931,6 +941,7 @@ class DataConfig {
         yearWeek: {
           title: "年周",
           type: "computed",
+          persist: false,
           validators: [{ type: "required" }],
           description: "年周组合（YYYY-WW），用于快速筛选",
           compute: (obj) => {
@@ -950,6 +961,7 @@ class DataConfig {
         daysSinceSale: {
           title: "距今天数",
           type: "computed",
+          persist: false,
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
             const date = _validationEngine.parseDate(obj.salesDate);
@@ -969,9 +981,15 @@ class DataConfig {
     // ========== 7. 系统记录实体 ==========
     this.SYSTEM_RECORD = {
       worksheet: "系统记录",
-      uniqueKey: "recordId",
+      uniqueKey: "recordDate",
       fields: {
-        recordId: { title: "记录ID", type: "string", persist: false },
+        recordDate: {
+          title: "记录日期",
+          type: "computed",
+          compute: (obj) => {
+            return new Date();
+          },
+        },
         updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
         updateDateOfRegularProduct: {
           title: "常态商品更新日期",
@@ -1124,7 +1142,7 @@ class DataConfig {
 
   //获取APPNAME
   getAppName() {
-    return this.APPNAME;
+    return this.APP_NAME;
   }
 
   // 获取指定实体的配置对象

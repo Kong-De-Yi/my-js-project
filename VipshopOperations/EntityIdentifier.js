@@ -5,8 +5,44 @@
 // ============================================================================
 
 class EntityIdentifier {
+  static _instance = null;
+
   constructor() {
+    if (EntityIdentifier._instance) {
+      return EntityIdentifier._instance;
+    }
+
     this._config = DataConfig.getInstance();
+    this._importableEntities = [];
+
+    // 获取可导入业务实体
+    for (const [key, value] of Object.entries(this._config.getAll())) {
+      if (value?.canImport === true) {
+        this._importableEntities.push(key);
+      }
+    }
+
+    EntityIdentifier._instance = this;
+  }
+
+  // 检查表头是否匹配实体的必填字段
+  _matchesEntity(entityName, headers) {
+    const entity = this._config.get(entityName);
+    if (!entity) return false;
+
+    const requiredTitles = entity.requiredTitles || [];
+    if (requiredTitles.length === 0) return false;
+
+    // 检查是否包含所有必填字段
+    return requiredTitles.every((title) => headers.includes(title));
+  }
+
+  // 单例模式获取实体配置器对象
+  static getInstance() {
+    if (!EntityIdentifier._instance) {
+      EntityIdentifier._instance = new EntityIdentifier();
+    }
+    return EntityIdentifier._instance;
   }
 
   // 识别导入数据的实体类型
@@ -18,15 +54,7 @@ class EntityIdentifier {
     // 标准化表头：去除前后空格
     const normalizedHeaders = headers.map((h) => String(h).trim());
 
-    // 按优先级检查各个实体
-    const entityPriority = [
-      "ProductSales", // 销售数据优先
-      "RegularProduct", // 常态商品
-      "ComboProduct", // 组合商品
-      "Inventory", // 库存
-    ];
-
-    for (const entityName of entityPriority) {
+    for (const entityName of this._importableEntities) {
       if (this._matchesEntity(entityName, normalizedHeaders)) {
         return entityName;
       }
@@ -35,38 +63,21 @@ class EntityIdentifier {
     return null;
   }
 
-  // 检查表头是否匹配实体的必填字段
-  _matchesEntity(entityName, headers) {
-    const entity = this._config.get(entityName);
-    if (!entity) return false;
-
-    const requiredFields = entity.requiredFields || [];
-    if (requiredFields.length === 0) return false;
-
-    // 获取必填字段的标题
-    const requiredTitles = requiredFields.map((field) => {
-      const fieldConfig = entity.fields[field];
-      return fieldConfig?.title || field;
-    });
-
-    // 检查是否包含所有必填字段
-    return requiredTitles.every((title) => headers.includes(title));
+  // 返回可以导入的所有实体
+  getImportableEntities() {
+    return this._importableEntities;
   }
 
   // 验证实体是否支持导入
   canImport(entityName) {
-    const importableEntities = [
-      "ProductSales",
-      "RegularProduct",
-      "ComboProduct",
-      "Inventory",
-    ];
-    return importableEntities.includes(entityName);
+    return this._importableEntities.includes(entityName);
   }
 
   // 获取实体的导入模式
   getImportMode(entityName) {
-    const appendEntities = ["ProductSales"]; // 只有销售数据是追加模式
-    return appendEntities.includes(entityName) ? "append" : "overwrite";
+    if (!this.canImport(entityName)) return null;
+
+    const entity = this._config.get(entityName);
+    return entity?.importMode ? entity?.importMode : null;
   }
 }

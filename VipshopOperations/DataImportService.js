@@ -9,7 +9,7 @@ class DataImportService {
     this._repository = repository;
     this._excelDAO = excelDAO;
     this._config = DataConfig.getInstance();
-    this._identifier = new EntityIdentifier();
+    this._identifier = EntityIdentifier.getInstance();
   }
 
   // 执行数据导入
@@ -39,12 +39,16 @@ class DataImportService {
     const entityName = this._identifier.identify(headers);
 
     if (!entityName) {
+      const importableEntities = this._identifier.getImportableEntities();
+      const requiredTitles = importableEntities
+        .map((entityName) => {
+          const entityConfig = this._config.get(entityName);
+          return entityName + ":" + entityConfig.requiredTitles.toString();
+        })
+        .join("\n");
       throw new Error(
         "无法识别导入数据的类型，请确保表头包含以下必填字段之一：\n" +
-          "- 销售数据：日期、货号、曝光UV、商详UV、加购UV(加购用户数)、客户数、拒退件数、销售量、销售额、首次上架时间\n" +
-          "- 常态商品：条码、货号、款号、颜色、尺码、三级品类、品牌SN、尺码状态、商品状态、市场价、唯品价、到手价、可售库存、可售天数、商品ID、P_SPU\n" +
-          "- 组合商品：组合商品实体编码、商品编码、数量\n" +
-          "- 商品库存：商品编码、数量、进货仓库存、后整车间、超卖车间、备货车间、销退仓库存、采购在途数\n",
+          requiredTitles,
       );
     }
 
@@ -158,7 +162,7 @@ class DataImportService {
       total: newItems.length,
       new: newCount,
       updated: updatedCount,
-      message: `销售数据导入完成：新增${newCount}条，更新${updatedCount}条`,
+      message: `【${entityConfig.worksheet}】导入完成：：新增${newCount}条，更新${updatedCount}条`,
     };
   }
 }

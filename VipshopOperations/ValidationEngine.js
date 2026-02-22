@@ -373,25 +373,25 @@ class ValidationEngine {
     return message;
   }
 
-  parseDate(dateStr) {
-    if (!dateStr) return null;
+  // parseDate(dateStr) {
+  //   if (!dateStr) return null;
 
-    const cleanValue = String(dateStr).replace(/^'/, "");
-    const timestamp = Date.parse(cleanValue);
-    if (isNaN(timestamp)) return null;
+  //   const cleanValue = String(dateStr).replace(/^'/, "");
+  //   const timestamp = Date.parse(cleanValue);
+  //   if (isNaN(timestamp)) return null;
 
-    return new Date(timestamp);
-  }
+  //   return new Date(timestamp);
+  // }
 
-  formatDate(date) {
-    if (!date) return "";
+  // formatDate(date) {
+  //   if (!date) return "";
 
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, "0");
+  //   const day = String(date.getDate()).padStart(2, "0");
 
-    return `${year}-${month}-${day}`;
-  }
+  //   return `${year}-${month}-${day}`;
+  // }
 
   /**
    * 获取年份

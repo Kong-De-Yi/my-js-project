@@ -134,10 +134,18 @@ class ExcelDAO {
         const fieldConfig = fields[key];
 
         // 类型转换
-        if (fieldConfig?.type === "number") {
-          obj[key] = this._toNumber(rawValue);
-        } else {
-          obj[key] = this._toString(rawValue);
+        switch (fieldConfig?.type) {
+          case "number":
+            obj[key] = this._toNumber(rawValue);
+            break;
+          case "date":
+            obj[key] = this._toDate(rawValue);
+            break;
+          case "string":
+            obj[key] = this._toString(rawValue);
+            break;
+          default:
+            obj[key] = this._toString(rawValue);
         }
       });
 
@@ -191,12 +199,17 @@ class ExcelDAO {
           return "";
         }
 
-        // 数字格式化
-        if (fieldConfig?.type === "number" && typeof value === "number") {
-          return value;
+        // 格式化
+        switch (fieldConfig?.type) {
+          case "number":
+            return Number(value);
+          case "date":
+            return this._formatDate(value);
+          case "string":
+            return String(value);
+          default:
+            return String(value);
         }
-
-        return String(value);
       });
       outputData.push(row);
     });
@@ -229,7 +242,6 @@ class ExcelDAO {
 
     const wb = targetWorkbook || this.getWorkbook();
     wb.Sheets(entityConfig.worksheet).Cells.Clear();
-    wb.Sheets(entityConfig.worksheet).Range("A1").Select();
 
     if (!targetWorkbook) {
       wb.Save();
@@ -275,5 +287,40 @@ class ExcelDAO {
     }
 
     return String(value);
+  }
+
+  // 转换为日期
+  _toDate(value) {
+    if (
+      value == null ||
+      String(value).trim() === "" ||
+      typeof value === "boolean"
+    ) {
+      return undefined;
+    }
+
+    const cleanValue = String(value).replace(/^'/, "");
+    const timestamp = Date.parse(cleanValue);
+    if (isNaN(timestamp)) return undefined;
+
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  // 格式化日期
+  _formatDate(value) {
+    const timestamp = Date.parse(String(value));
+    if (isNaN(timestamp)) return "";
+
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `'${year}-${month}-${day}`;
   }
 }
