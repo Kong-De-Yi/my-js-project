@@ -265,7 +265,7 @@ class ExcelDAO {
   parseDate(dateStr) {
     if (!dateStr) return null;
 
-    const timestamp = Date.parse(cleanValue);
+    const timestamp = Date.parse(String(dateStr));
     if (isNaN(timestamp)) return null;
 
     return new Date(timestamp);

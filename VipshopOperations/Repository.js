@@ -518,7 +518,7 @@ class Repository {
     }
 
     if (options.validateOnly) {
-      return item;
+      return true;
     }
 
     // 添加到数据集中
@@ -526,7 +526,7 @@ class Repository {
     // 保存所有数据
     this.save(entityName, currentData);
 
-    return item;
+    return { insert: [item] };
   }
 
   // 批量新增多条记录，options={validateOnly:true}
@@ -546,7 +546,6 @@ class Repository {
       0,
     );
 
-    const newItems = [];
     const errors = [];
 
     items.forEach((newItem, index) => {
@@ -572,8 +571,6 @@ class Repository {
             ),
           );
         }
-
-        newItems.push(newItem);
       } catch (e) {
         errors.push(`第${index + 1}条记录：${e.message}`);
       }
@@ -584,22 +581,24 @@ class Repository {
     }
 
     if (options.validateOnly) {
-      return newItems;
+      return true;
     }
 
-    // 合并并保存
-    const updatedData = [...currentData, ...newItems];
+    // 合并并保存所有数据到缓存
+    const updatedData = [...currentData, ...items];
     this.save(entityName, updatedData);
 
-    return newItems;
+    return { insert: items };
   }
 
-  // 更新一条或多条符合条件的记录，options={upsert:true,validateOnly:true,multi: true}
+  // 更新或插入一条或多条符合条件的记录，options={upsert:true,validateOnly:true,multi: true}
   update(entityName, condition, updates, options = {}) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
       throw new Error(`未知实体：${entityName}`);
     }
+
+    const result = { insert: [], update: [] };
 
     // 查找要更新的记录
     const records = this.find(entityName, condition);
@@ -608,7 +607,13 @@ class Repository {
       if (options.upsert) {
         // 如果没找到且 upsert 为 true，则新增
         const newItem = { ...condition, ...updates };
-        return this.add(entityName, newItem);
+
+        if (this.add(entityName, newItem, options) === true) {
+          return true;
+        } else {
+          result.insert.push(newItem);
+          return result;
+        }
       }
       throw new Error(`未找到符合条件的记录`);
     }
@@ -649,11 +654,7 @@ class Repository {
         if (!validationResult.valid) {
           throw new Error(
             this._validationEngine.formatErrors(
-              {
-                items: [
-                  { ...validationResult, rowNumber: updatedRecord._rowNumber },
-                ],
-              },
+              { items: [{ ...validationResult }] },
               entityConfig.worksheet,
             ),
           );
@@ -670,16 +671,17 @@ class Repository {
     }
 
     if (options.validateOnly) {
-      return Object.values(updatedRecords);
+      return true;
     }
 
-    // 替换并保存
+    // 替换并保存所有数据到缓存
     for (const [index, updatedRecord] of Object.entries(updatedRecords)) {
       currentData[Number(index)] = updatedRecord;
+      result.update.push(updatedRecord);
     }
     this.save(entityName, currentData);
 
-    return Object.values(updatedRecords);
+    return result;
   }
 
   // 更新多条符合条件的已存在的记录
@@ -722,16 +724,19 @@ class Repository {
       throw new Error(`找到多条记录，无法确定更新哪一条`);
     }
 
-    const result = null;
+    const result = { insert: [], update: [] };
+
     if (existing.length === 1) {
       // 更新
-      result = this.update(entityName, condition, item);
+      this.update(entityName, condition, item);
+      result.update.push(item);
     } else {
       // 新增
-      result = this.add(entityName, item);
+      this.add(entityName, item);
+      result.insert.push(item);
     }
 
-    return Array.isArray(result) ? result[0] : result;
+    return result;
   }
 
   // 删除一条或多条符合条件的记录,options={multi:true}
@@ -766,7 +771,7 @@ class Repository {
       return 0;
     }
 
-    // 保存
+    // 保存所有数据
     this.save(entityName, newData);
 
     return currentData.length - newData.length;
