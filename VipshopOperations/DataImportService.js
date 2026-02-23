@@ -135,7 +135,7 @@ class DataImportService {
       const requiredTitles = importableEntities
         .map((entityName) => {
           const entityConfig = this._config.get(entityName);
-          return entityName + ":" + entityConfig.requiredTitles.toString();
+          return `【${entityConfig.worksheet}】: ${entityConfig.requiredTitles.toString()}`;
         })
         .join("\n");
       throw new Error(
