@@ -163,6 +163,9 @@ class DataImportService {
       result = this._overwriteData(entityName, items);
     }
 
+    // 8. 清空导入数据表
+    this._excelDAO.clear("ImportData");
+
     return result;
   }
 }

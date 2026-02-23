@@ -27,8 +27,6 @@ function UserForm1_CommandButton6_Click() {
   try {
     const result = _dataImportService.import();
 
-    _repository.clear("ImportData");
-
     MsgBox(result.message, 64, "导入成功");
   } catch (err) {
     MsgBox(`导入失败：${err.message}`, 16, "错误");
