@@ -14,7 +14,7 @@ class Repository {
     };
   }
 
-  // 获取业务实体的fields组合键值，"¦"分隔
+  // 以字符串形式返回字段的组合键值，多字段用 ¦ 连接
   _getCompositeKey(item, fields) {
     if (fields.length === 1) {
       const value = item[fields[0]];
@@ -303,7 +303,7 @@ class Repository {
     return data;
   }
 
-  // 查询符合条件的实体对象（优先索引）
+  // 查询符合条件的实体对象（优先索引，其次遍历全表）
   find(entityName, condition) {
     const data = this.findAll(entityName);
 
@@ -321,7 +321,7 @@ class Repository {
     return this._fullScan(data, condition);
   }
 
-  // 复杂查询（全表查询，支持条件过滤，排序，分页）
+  // 复杂查询（遍历全表查询，支持条件过滤，排序，分页）
   query(entityName, options = {}) {
     let results = this.findAll(entityName);
 
@@ -432,6 +432,7 @@ class Repository {
 
     // 计算计算字段
     this._computeFields(data, entityConfig);
+
     this._excelDAO.write(entityName, data);
     this._cache.set(entityName, data);
     this._buildAllIndexes(entityName, data);
@@ -481,7 +482,7 @@ class Repository {
 
   // ==================== 数据修改操作 ====================
 
-  // 新增一条记录
+  // 新增一条记录，options={validateOnly:true}
   add(entityName, item, options = {}) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
@@ -510,7 +511,7 @@ class Repository {
 
     if (!validationResult.valid) {
       const errorMsg = this._validationEngine.formatErrors(
-        validationResult,
+        { items: [{ ...validationResult }] },
         entityConfig.worksheet,
       );
       throw new Error(errorMsg);
@@ -522,12 +523,13 @@ class Repository {
 
     // 添加到数据集中
     currentData.push(item);
-
     // 保存所有数据
-    return this.save(entityName, currentData);
+    this.save(entityName, currentData);
+
+    return item;
   }
 
-  // 批量新增多条记录
+  // 批量新增多条记录，options={validateOnly:true}
   addMany(entityName, items, options = {}) {
     if (!Array.isArray(items)) {
       throw new Error("items 必须是数组");
@@ -565,7 +567,7 @@ class Repository {
         if (!validationResult.valid) {
           throw new Error(
             this._validationEngine.formatErrors(
-              validationResult,
+              { items: [{ ...validationResult }] },
               entityConfig.worksheet,
             ),
           );
@@ -587,10 +589,12 @@ class Repository {
 
     // 合并并保存
     const updatedData = [...currentData, ...newItems];
-    return this.save(entityName, updatedData);
+    this.save(entityName, updatedData);
+
+    return newItems;
   }
 
-  // 更新一条记录
+  // 更新一条或多条符合条件的记录，options={upsert:true,validateOnly:true,multi: true}
   update(entityName, condition, updates, options = {}) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
@@ -635,9 +639,27 @@ class Repository {
           _rowNumber: currentData[index]._rowNumber, // 保持行号不变
         };
 
-        // 替换原记录
-        currentData[index] = updatedRecord;
-        updatedRecords.push(updatedRecord);
+        // 验证更新后的数据
+        const validationResult = this._validationEngine.validateEntity(
+          updatedRecord,
+          entityConfig,
+          { allData: currentData.filter((_, i) => i !== index) }, // 排除被更新的业务对象自身
+        );
+
+        if (!validationResult.valid) {
+          throw new Error(
+            this._validationEngine.formatErrors(
+              {
+                items: [
+                  { ...validationResult, rowNumber: updatedRecord._rowNumber },
+                ],
+              },
+              entityConfig.worksheet,
+            ),
+          );
+        }
+
+        updatedRecords.push({ index: updatedRecord });
       } catch (e) {
         errors.push(e.message);
       }
@@ -648,14 +670,19 @@ class Repository {
     }
 
     if (options.validateOnly) {
-      return updatedRecords;
+      return Object.values(updatedRecords);
     }
 
-    // 保存
-    return this.save(entityName, currentData);
+    // 替换并保存
+    for (const [index, updatedRecord] of Object.entries(updatedRecords)) {
+      currentData[Number(index)] = updatedRecord;
+    }
+    this.save(entityName, currentData);
+
+    return Object.values(updatedRecords);
   }
 
-  // 批量更新（根据条件批量更新记录）
+  // 更新多条符合条件的已存在的记录
   updateMany(entityName, condition, updates) {
     return this.update(entityName, condition, updates, { multi: true });
   }
@@ -682,7 +709,7 @@ class Repository {
     // 构建查询条件
     const condition = {};
     uniqueFields.forEach((field) => {
-      if (item[field] === undefined) {
+      if (item[field] == undefined) {
         throw new Error(`唯一字段 ${field} 在数据中不存在`);
       }
       condition[field] = item[field];
@@ -695,17 +722,19 @@ class Repository {
       throw new Error(`找到多条记录，无法确定更新哪一条`);
     }
 
+    const result = null;
     if (existing.length === 1) {
       // 更新
-      const result = this.update(entityName, condition, item);
-      return Array.isArray(result) ? result[0] : result;
+      result = this.update(entityName, condition, item);
     } else {
       // 新增
-      return this.add(entityName, item);
+      result = this.add(entityName, item);
     }
+
+    return Array.isArray(result) ? result[0] : result;
   }
 
-  // 删除记录
+  // 删除一条或多条符合条件的记录,options={multi:true}
   delete(entityName, condition, options = {}) {
     const entityConfig = this._config.get(entityName);
     if (!entityConfig) {
@@ -874,40 +903,4 @@ class Repository {
     this._cache.set("SystemRecord", [newRecord]);
     return newRecord;
   }
-
-  // ==================== 私有辅助方法 ====================
-
-  // _parseCompositeKey(indexKey, compositeValue) {
-  //   const fields = indexKey.split("|");
-  //   const values = String(compositeValue).split("¦");
-
-  //   const condition = {};
-  //   fields.forEach((field, i) => {
-  //     condition[field] = values[i] === "" ? undefined : values[i];
-  //   });
-
-  //   return condition;
-  // }
-
-  // getIndexStats(entityName) {
-  //   const entityIndexes = this._indexes.get(entityName);
-  //   if (!entityIndexes) {
-  //     return { hasIndexes: false };
-  //   }
-
-  //   const stats = {
-  //     hasIndexes: true,
-  //     indexes: [],
-  //   };
-
-  //   for (let [indexKey, index] of entityIndexes.entries()) {
-  //     stats.indexes.push({
-  //       key: indexKey,
-  //       size: index.size,
-  //       fields: indexKey.split("|"),
-  //     });
-  //   }
-
-  //   return stats;
-  // }
 }

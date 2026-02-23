@@ -1,8 +1,3 @@
-// ============================================================================
-// ValidationEngine.js - 数据验证引擎（增强版）
-// 功能：支持计算字段的验证
-// ============================================================================
-
 class ValidationEngine {
   static _instance = null;
 
@@ -13,6 +8,7 @@ class ValidationEngine {
 
     this._config = DataConfig.getInstance();
 
+    // 默认验证规则
     this._validators = {
       required: (value, params) => ({
         valid: value != undefined && String(value).trim() !== "",
@@ -35,7 +31,7 @@ class ValidationEngine {
           params.regex.test(String(value)),
         message:
           params?.message ||
-          `格式不正确${params.description ? "：" + params.description : ""}`,
+          `格式不正确${params.description ? ":" + params.description : ""}`,
       }),
 
       range: (value, params) => {
@@ -158,15 +154,7 @@ class ValidationEngine {
     ValidationEngine._instance = this;
   }
 
-  // 单例模式
-  static getInstance() {
-    if (!ValidationEngine._instance) {
-      ValidationEngine._instance = new ValidationEngine();
-    }
-    return ValidationEngine._instance;
-  }
-
-  // 返回字段的组合键值，多字段用 ¦ 连接
+  // 以字符串形式返回字段的组合键值，多字段用 ¦ 连接
   _getCompositeKeyValue(item, fields) {
     if (fields.length === 1) {
       const value = item[fields[0]];
@@ -186,20 +174,20 @@ class ValidationEngine {
     return fieldConfig?.title || fieldName;
   }
 
-  // 验证一个实体对象的主键唯一性
+  // 验证一个实体对象的主键完整性和唯一性,返回 {valid,errors:[]}
   _validateCompositeKey(entity, entityConfig, allData) {
     if (!entityConfig.uniqueKey) {
       return { valid: true, errors: [] };
     }
 
     const uniqueKeyConfig = this._config.parseUniqueKey(entityConfig.uniqueKey);
-    const fields = uniqueKeyConfig.fields; // 数组形式
+    const fields = uniqueKeyConfig.fields; // 获取业务实体的主键数组
 
     if (fields.length === 0) {
       return { valid: true, errors: [] };
     }
 
-    // 验证主键的字段完整性
+    // 验证实体对象主键的字段完整性
     const missingFields = [];
     fields.forEach((field) => {
       const value = entity[field];
@@ -221,9 +209,10 @@ class ValidationEngine {
     const currentKey = this._getCompositeKeyValue(entity, fields);
 
     const duplicates = allData.filter((item) => {
+      // 排除实体对象本身
       if (item === entity) return false;
-      const itemKey = this._getCompositeKeyValue(item, fields);
-      return itemKey === currentKey && itemKey !== "";
+
+      return this._getCompositeKeyValue(item, fields) === currentKey;
     });
 
     if (duplicates.length > 0) {
@@ -250,12 +239,20 @@ class ValidationEngine {
     return { valid: true, errors: [] };
   }
 
-  // 注册验证器
+  // 单例模式
+  static getInstance() {
+    if (!ValidationEngine._instance) {
+      ValidationEngine._instance = new ValidationEngine();
+    }
+    return ValidationEngine._instance;
+  }
+
+  // 注册自定义验证规则
   register(name, validatorFn) {
     this._validators[name] = validatorFn;
   }
 
-  // 验证单个验证器
+  // 验证单个规则,返回{valid,message}
   validateValue(value, validatorConfig, fieldTitle = "") {
     const validator = this._validators[validatorConfig.type];
     if (!validator) {
@@ -269,7 +266,7 @@ class ValidationEngine {
     };
   }
 
-  // 验证单字段多个验证器
+  // 验证单字段的所有验证规则,返回{valid,errors:[]}
   validateField(value, fieldConfig, fieldName) {
     if (!fieldConfig.validators || fieldConfig.validators.length === 0) {
       return { valid: true, errors: [] };
@@ -278,7 +275,9 @@ class ValidationEngine {
     const errors = [];
     const fieldTitle = fieldConfig.title || fieldName;
 
+    // 遍历验证字段的所有验证规则
     for (const validator of fieldConfig.validators) {
+      // 非必须字段跳过验证
       if (
         validator.type !== "required" &&
         (value == undefined || String(value).trim() === "")
@@ -298,15 +297,16 @@ class ValidationEngine {
     };
   }
 
-  // 验证一个实体对象（包括主键唯一性）
+  // 验证一个实体对象(包括主键唯一性)，返回{valid,errors:{fieldName:errors,_composite:errors},rowNumber}
   validateEntity(entity, entityConfig, context = {}) {
     const errors = {};
 
-    // 验证各个字段（包括计算字段？通常不验证计算字段）
+    // 验证各个字段
     Object.entries(entityConfig.fields).forEach(([fieldName, fieldConfig]) => {
-      // 跳过计算字段的验证（因为它们是由系统自动生成的）
+      // 跳过计算字段的验证
       if (fieldConfig.type === "computed") return;
 
+      // 验证单个字段的所有验证规则
       const value = entity[fieldName];
       const result = this.validateField(value, fieldConfig, fieldName);
 
@@ -315,6 +315,7 @@ class ValidationEngine {
       }
     });
 
+    // 验证主键唯一性
     if (context.allData) {
       const compositeResult = this._validateCompositeKey(
         entity,
@@ -367,6 +368,7 @@ class ValidationEngine {
     return results;
   }
 
+  // 格式化整个实体集的验证结果
   formatErrors(validationResult, entityName) {
     if (validationResult.valid) {
       return null;
@@ -387,40 +389,5 @@ class ValidationEngine {
     });
 
     return message;
-  }
-
-  /**
-   * 获取年份
-   * @param {Date} date - 日期
-   * @returns {number} 年份
-   */
-  getYear(date) {
-    return date ? date.getFullYear() : new Date().getFullYear();
-  }
-
-  /**
-   * 获取月份
-   * @param {Date} date - 日期
-   * @returns {number} 月份（1-12）
-   */
-  getMonth(date) {
-    return date ? date.getMonth() + 1 : new Date().getMonth() + 1;
-  }
-
-  /**
-   * 获取ISO周数
-   * @param {Date} date - 日期
-   * @returns {number} 周数（1-53）
-   */
-  getISOWeekNumber(date) {
-    if (!date) date = new Date();
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-    const week1 = new Date(d.getFullYear(), 0, 4);
-    return (
-      1 +
-      Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
-    );
   }
 }
