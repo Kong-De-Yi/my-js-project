@@ -1,13 +1,65 @@
-// ============================================================================
-// ProductService.js - 产品业务服务
-// 功能：封装所有产品相关的业务逻辑
-// ============================================================================
-
 class ProductService {
   constructor(repository, profitCalculator) {
     this._repository = repository;
     this._profitCalculator = profitCalculator;
     this._config = DataConfig.getInstance();
+  }
+
+  // 按照货号给常态商品分组
+  _groupRegularProducts(regularProducts) {
+    const groups = {};
+    regularProducts.forEach((rp) => {
+      if (!rp.itemNumber) return;
+      if (!groups[rp.itemNumber]) {
+        groups[rp.itemNumber] = [];
+      }
+      groups[rp.itemNumber].push(rp);
+    });
+    return groups;
+  }
+
+  // 从常态商品更新货号总表
+  _updateProductFromRegulars(product, regulars) {
+    if (regulars.length === 0) return product;
+
+    const first = regulars[0];
+
+    // 更新基础信息
+    product.styleNumber = first.styleNumber;
+    product.color = first.color;
+    product.thirdLevelCategory = first.thirdLevelCategory;
+    product.itemStatus = first.itemStatus;
+    product.tagPrice = first.tagPrice;
+    product.vipshopPrice = first.vipshopPrice;
+    product.finalPrice = first.finalPrice;
+    product.sellableDays = first.sellableDays;
+    product.MID = first.MID;
+    product.P_SPU = first.P_SPU;
+
+    // 清空下线原因（如果已上线）
+    if (product.itemStatus !== "商品下线") {
+      product.offlineReason = "";
+    }
+
+    // 计算可售库存
+    product.sellableInventory = regulars.reduce(
+      (sum, rp) => sum + (rp.sellableInventory || 0),
+      0,
+    );
+
+    // 计算断码
+    const outOfStockSizes = regulars
+      .filter(
+        (rp) =>
+          rp.sizeStatus === "尺码上线" && (rp.sellableInventory || 0) === 0,
+      )
+      .map((rp) => rp.size)
+      .filter(Boolean)
+      .sort((a, b) => +a - +b);
+
+    product.isOutOfStock =
+      outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
+    return product;
   }
 
   // 从常态商品更新数据
@@ -20,8 +72,6 @@ class ProductService {
     };
 
     try {
-      // 1. 刷新数据
-      this._repository.refresh("Product");
       const regularProducts = this._repository.findAll("RegularProduct");
       let products = this._repository.findProducts();
 
@@ -219,59 +269,6 @@ class ProductService {
   }
 
   // ========== 私有辅助方法 ==========
-
-  _groupRegularProducts(regularProducts) {
-    const groups = {};
-    regularProducts.forEach((rp) => {
-      if (!rp.itemNumber) return;
-      if (!groups[rp.itemNumber]) {
-        groups[rp.itemNumber] = [];
-      }
-      groups[rp.itemNumber].push(rp);
-    });
-    return groups;
-  }
-
-  _updateProductFromRegulars(product, regulars) {
-    if (regulars.length === 0) return product;
-
-    const first = regulars[0];
-
-    // 更新基础信息
-    product.thirdLevelCategory = first.thirdLevelCategory;
-    product.P_SPU = first.P_SPU;
-    product.MID = first.MID;
-    product.styleNumber = first.styleNumber;
-    product.color = first.color;
-    product.itemStatus = first.itemStatus;
-    product.vipshopPrice = first.vipshopPrice;
-    product.finalPrice = first.finalPrice;
-    product.sellableDays = first.sellableDays;
-
-    // 清空下线原因（如果已上线）
-    if (product.itemStatus !== "商品下线") {
-      product.offlineReason = "";
-    }
-
-    // 计算可售库存
-    product.sellableInventory = regulars.reduce(
-      (sum, rp) => sum + (Number(rp.sellableInventory) || 0),
-      0,
-    );
-
-    // 计算断码
-    const outOfStockSizes = regulars
-      .filter(
-        (rp) =>
-          rp.sizeStatus === "尺码上线" && (rp.sellableInventory || 0) === 0,
-      )
-      .map((rp) => rp.size)
-      .filter(Boolean);
-
-    product.isOutOfStock =
-      outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
-    return product;
-  }
 
   _createProductFromRegulars(itemNumber, regulars) {
     const first = regulars[0];
