@@ -820,9 +820,19 @@ class Repository {
     });
   }
 
+  // 获取所有（符合条件）的商品价格
+  findProductPrices(query = {}) {
+    return this.find("ProductPrice", query);
+  }
+
   // 通过货号获取产品价格
   findPriceByItemNumber(itemNumber) {
-    return this.findOne("ProductPrice", { itemNumber });
+    return this.find("ProductPrice", { itemNumber })[0];
+  }
+
+  // 通过货号获取常态商品
+  findRegularProductsByItemNumber(itemNumber) {
+    return this.find("RegularProduct", { itemNumber });
   }
 
   // 获取所有（符合条件）的常态商品
@@ -832,7 +842,7 @@ class Repository {
 
   // 通过条码获取库存
   findInventory(productCode) {
-    return this.find("Inventory", { productCode });
+    return this.find("Inventory", { productCode })[0];
   }
 
   // 通过条码获取组合商品
@@ -897,12 +907,13 @@ class Repository {
     }
 
     const newRecord = {
-      updateDateOfLast7Days: "",
-      updateDateOfProductPrice: "",
-      updateDateOfRegularProduct: "",
-      updateDateOfInventory: "",
-      updateDateOfProductSales: "",
-      _rowNumber: 1,
+      updateDateOfProductPrice: undefined,
+      updateDateOfRegularProduct: undefined,
+      updateDateOfInventory: undefined,
+      importDateOfRegularProduct: undefined,
+      importDateOfComboProduct: undefined,
+      importDateOfInventory: undefined,
+      importDateOfProductSales: undefined,
     };
 
     this._cache.set("SystemRecord", [newRecord]);

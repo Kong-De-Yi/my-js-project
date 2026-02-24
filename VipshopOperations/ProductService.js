@@ -1,25 +1,28 @@
 class ProductService {
-  constructor(repository, profitCalculator) {
+  constructor(repository) {
     this._repository = repository;
-    this._profitCalculator = profitCalculator;
     this._config = DataConfig.getInstance();
+    this._validationEngine = ValidationEngine.getInstance();
   }
 
-  // 按照货号给常态商品分组
-  _groupRegularProducts(regularProducts) {
-    const groups = {};
-    regularProducts.forEach((rp) => {
-      if (!rp.itemNumber) return;
-      if (!groups[rp.itemNumber]) {
-        groups[rp.itemNumber] = [];
-      }
-      groups[rp.itemNumber].push(rp);
-    });
-    return groups;
+  // 计算常态商品是否断码
+  _getOutOfStockSizes(regulars) {
+    const outOfStockSizes = regulars
+      .filter(
+        (rp) => rp.sizeStatus === "尺码上线" && rp.sellableInventory === 0,
+      )
+      .map((rp) => rp.size)
+      .filter(Boolean)
+      .sort((a, b) => +a - +b);
+
+    return outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
   }
 
-  // 从常态商品更新货号总表
-  _updateProductFromRegulars(product, regulars) {
+  // 从常态商品更新指定产品
+  _updateProductFromRegulars(product) {
+    const regulars = this._repository.findRegularProductsByItemNumber(
+      product.itemNumber,
+    );
     if (regulars.length === 0) return product;
 
     const first = regulars[0];
@@ -33,270 +36,60 @@ class ProductService {
     product.vipshopPrice = first.vipshopPrice;
     product.finalPrice = first.finalPrice;
     product.sellableDays = first.sellableDays;
+    product.isOutOfStock = this._getOutOfStockSizes(regulars);
     product.MID = first.MID;
     product.P_SPU = first.P_SPU;
+
+    // 计算可售库存
+    product.sellableInventory = regulars.reduce(
+      (sum, rp) => sum + rp.sellableInventory,
+      0,
+    );
 
     // 清空下线原因（如果已上线）
     if (product.itemStatus !== "商品下线") {
       product.offlineReason = "";
     }
 
-    // 计算可售库存
-    product.sellableInventory = regulars.reduce(
-      (sum, rp) => sum + (rp.sellableInventory || 0),
-      0,
-    );
-
-    // 计算断码
-    const outOfStockSizes = regulars
-      .filter(
-        (rp) =>
-          rp.sizeStatus === "尺码上线" && (rp.sellableInventory || 0) === 0,
-      )
-      .map((rp) => rp.size)
-      .filter(Boolean)
-      .sort((a, b) => +a - +b);
-
-    product.isOutOfStock =
-      outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
     return product;
   }
 
-  // 从常态商品更新数据
-  updateFromRegularProducts() {
-    const result = {
-      totalProducts: 0,
-      newProducts: 0,
-      updatedProducts: 0,
-      errors: [],
-    };
+  // 根据货号取常态商品信息创建新的产品
+  _createProductFromRegulars(itemNumber) {
+    const regulars =
+      this._repository.findRegularProductsByItemNumber(itemNumber);
 
-    try {
-      const regularProducts = this._repository.findAll("RegularProduct");
-      let products = this._repository.findProducts();
+    if (regulars.length === 0) return null;
 
-      result.totalProducts = products.length;
-
-      // 2. 按货号分组常态商品
-      const regularByItem = this._groupRegularProducts(regularProducts);
-
-      // 3. 处理每个产品
-      const updatedProducts = products.map((product) => {
-        const regulars = regularByItem[product.itemNumber] || [];
-        return this._updateProductFromRegulars(product, regulars);
-      });
-
-      // 4. 添加新货号
-      const existingItemNumbers = new Set(products.map((p) => p.itemNumber));
-      const newProducts = [];
-
-      Object.entries(regularByItem).forEach(([itemNumber, regulars]) => {
-        if (!existingItemNumbers.has(itemNumber)) {
-          const newProduct = this._createProductFromRegulars(
-            itemNumber,
-            regulars,
-          );
-          newProducts.push(newProduct);
-          result.newProducts++;
-        }
-      });
-
-      // 5. 合并并保存
-      const allProducts = [...updatedProducts, ...newProducts];
-      this._repository.save("Product", allProducts);
-
-      result.updatedProducts = updatedProducts.length;
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
-    }
-  }
-
-  /**
-   * 从价格表更新产品价格
-   */
-  updateFromPriceData() {
-    const result = {
-      updated: 0,
-      skipped: 0,
-      errors: [],
-    };
-
-    try {
-      this._repository.refresh("ProductPrice");
-      const priceData = this._repository.findAll("ProductPrice");
-      const products = this._repository.findProducts();
-
-      // 建立价格映射
-      const priceMap = {};
-      priceData.forEach((p) => {
-        if (p.itemNumber) {
-          priceMap[p.itemNumber] = p;
-        }
-      });
-
-      // 更新产品价格
-      products.forEach((product) => {
-        const price = priceMap[product.itemNumber];
-        if (price) {
-          const changed = this._applyPriceToProduct(product, price);
-          if (changed) result.updated++;
-        } else {
-          result.skipped++;
-        }
-      });
-
-      this._repository.save("Product", products);
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
-    }
-  }
-
-  /**
-   * 从库存数据更新产品库存
-   */
-  updateFromInventory() {
-    const result = {
-      updated: 0,
-      zeroInventory: 0,
-      errors: [],
-    };
-
-    try {
-      this._repository.refresh("Inventory");
-      this._repository.refresh("ComboProduct");
-
-      const products = this._repository.findProducts();
-      const inventoryMap = this._buildInventoryMap();
-      const comboMap = this._buildComboMap();
-
-      products.forEach((product) => {
-        const before = product.totalInventory;
-        this._calculateProductInventory(product, inventoryMap, comboMap);
-        const after = product.totalInventory;
-
-        if (before !== after) result.updated++;
-        if (after === 0) result.zeroInventory++;
-      });
-
-      this._repository.save("Product", products);
-      this._repository.clear("Inventory");
-      this._repository.clear("ComboProduct");
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
-    }
-  }
-
-  /**
-   * 从销售数据更新产品销售信息
-   */
-  updateFromSalesData() {
-    const result = {
-      updated: 0,
-      withSales: 0,
-      errors: [],
-    };
-
-    try {
-      this._repository.refresh("ProductSales");
-
-      const products = this._repository.findProducts();
-      const salesData = this._repository.findAll("ProductSales");
-
-      // 按货号分组销售数据
-      const salesByItem = this._groupSalesData(salesData);
-
-      // 近7天日期范围
-      const last7Days = this._getLast7DaysRange();
-
-      products.forEach((product) => {
-        const sales = salesByItem[product.itemNumber] || [];
-        const changed = this._applySalesToProduct(product, sales, last7Days);
-
-        if (changed) {
-          result.updated++;
-          if (product.salesQuantityOfLast7Days > 0) {
-            result.withSales++;
-          }
-        }
-      });
-
-      this._repository.save("Product", products);
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
-    }
-  }
-
-  /**
-   * 一键更新所有数据
-   */
-  async updateAll() {
-    const results = {
-      regular: null,
-      price: null,
-      inventory: null,
-      sales: null,
-      success: true,
-      errors: [],
-    };
-
-    try {
-      // 按顺序执行更新
-      results.regular = this.updateFromRegularProducts();
-      results.price = this.updateFromPriceData();
-      results.inventory = this.updateFromInventory();
-      results.sales = this.updateFromSalesData();
-
-      // 更新系统记录
-      this._updateSystemRecord();
-    } catch (e) {
-      results.success = false;
-      results.errors.push(e.message);
-    }
-
-    return results;
-  }
-
-  // ========== 私有辅助方法 ==========
-
-  _createProductFromRegulars(itemNumber, regulars) {
     const first = regulars[0];
 
     return {
       itemNumber,
-      brandSN: first.brandSN,
-      brandName: first.brand,
-      marketingPositioning: "利润款",
-      thirdLevelCategory: first.thirdLevelCategory,
-      P_SPU: first.P_SPU,
-      MID: first.MID,
       styleNumber: first.styleNumber,
       color: first.color,
       itemStatus: first.itemStatus,
-      vipshopPrice: first.vipshopPrice,
+      marketingPositioning: "利润款",
       finalPrice: first.finalPrice,
-      sellableDays: first.sellableDays,
       sellableInventory: regulars.reduce(
-        (sum, rp) => sum + (Number(rp.sellableInventory) || 0),
+        (sum, rp) => sum + rp.sellableInventory,
         0,
       ),
-      _rowNumber: Date.now(), // 临时行号
+      sellableDays: first.sellableDays,
+      isOutOfStock: this._getOutOfStockSizes(regulars),
+      brandSN: first.brandSN,
+      MID: first.MID,
+      P_SPU: first.P_SPU,
+      thirdLevelCategory: first.thirdLevelCategory,
+      tagPrice: first.tagPrice,
+      vipshopPrice: first.vipshopPrice,
     };
   }
 
-  _applyPriceToProduct(product, price) {
+  // 根据货号取商品价格信息更新指定产品
+  _applyPriceToProduct(product) {
     let changed = false;
+    const price = this._repository.findPriceByItemNumber(product.itemNumber);
+    if (!price) return changed;
 
     if (product.costPrice !== price.costPrice) {
       product.costPrice = price.costPrice;
@@ -310,58 +103,23 @@ class ProductService {
       product.silverPrice = price.silverPrice;
       changed = true;
     }
-    if ((product.userOperations1 || 0) !== (price.userOperations1 || 0)) {
-      product.userOperations1 = price.userOperations1 || 0;
+    if (product.userOperations1 !== price.userOperations1) {
+      product.userOperations1 = price.userOperations1;
       changed = true;
     }
-    if ((product.userOperations2 || 0) !== (price.userOperations2 || 0)) {
-      product.userOperations2 = price.userOperations2 || 0;
+    if (product.userOperations2 !== price.userOperations2) {
+      product.userOperations2 = price.userOperations2;
       changed = true;
     }
+
+    // 更新图片和设计号
+    product.designNumber = price.designNumber;
+    product.picture = price.picture;
 
     return changed;
   }
 
-  _buildInventoryMap() {
-    const map = {};
-    this._repository.findAll("Inventory").forEach((inv) => {
-      if (inv.productCode) {
-        map[inv.productCode] = inv;
-      }
-    });
-    return map;
-  }
-
-  _buildComboMap() {
-    const map = {};
-    this._repository.findAll("ComboProduct").forEach((combo) => {
-      if (!map[combo.productCode]) {
-        map[combo.productCode] = [];
-      }
-      map[combo.productCode].push(combo);
-    });
-    return map;
-  }
-
-  _calculateProductInventory(product, inventoryMap, comboMap) {
-    // 重置库存
-    this._resetInventoryFields(product);
-
-    // 查找该货号的所有常态商品
-    const regulars = this._repository.findRegularProducts({
-      itemNumber: product.itemNumber,
-    });
-
-    regulars.forEach((regular) => {
-      this._calculateFinishedGoods(product, regular, inventoryMap);
-      this._calculateGeneralGoods(product, regular, inventoryMap, comboMap);
-    });
-
-    // 合计库存
-    product.totalInventory =
-      product.finishedGoodsTotalInventory + product.generalGoodsTotalInventory;
-  }
-
+  // 指定货号库存清0
   _resetInventoryFields(product) {
     const fields = [
       "finishedGoodsMainInventory",
@@ -371,7 +129,6 @@ class ProductService {
       "finishedGoodsPrepareInventory",
       "finishedGoodsReturnInventory",
       "finishedGoodsPurchaseInventory",
-      "finishedGoodsTotalInventory",
       "generalGoodsMainInventory",
       "generalGoodsIncomingInventory",
       "generalGoodsFinishingInventory",
@@ -379,148 +136,325 @@ class ProductService {
       "generalGoodsPrepareInventory",
       "generalGoodsReturnInventory",
       "generalGoodsPurchaseInventory",
-      "generalGoodsTotalInventory",
-      "totalInventory",
     ];
 
     fields.forEach((f) => (product[f] = 0));
   }
 
-  _calculateFinishedGoods(product, regular, inventoryMap) {
-    const inv = inventoryMap[regular.productCode];
-    if (!inv) return;
-
-    product.finishedGoodsMainInventory += Number(inv.mainInventory || 0);
-    product.finishedGoodsIncomingInventory += Number(
-      inv.incomingInventory || 0,
-    );
-    product.finishedGoodsFinishingInventory += Number(
-      inv.finishingInventory || 0,
-    );
-    product.finishedGoodsOversoldInventory += Number(
-      inv.oversoldInventory || 0,
-    );
-    product.finishedGoodsPrepareInventory += Number(inv.prepareInventory || 0);
-    product.finishedGoodsReturnInventory += Number(inv.returnInventory || 0);
-    product.finishedGoodsPurchaseInventory += Number(
-      inv.purchaseInventory || 0,
+  // 计算产品的成品库存
+  _calculateFinishedGoods(product) {
+    // 查找该货号的所有常态商品
+    const regulars = this._repository.findRegularProductsByItemNumber(
+      product.itemNumber,
     );
 
-    product.finishedGoodsTotalInventory =
+    // 累加成品条码的库存
+    regulars.forEach((r) => {
+      const inv = this._repository.findInventory(r.productCode);
+      if (!inv) return;
+
+      product.finishedGoodsMainInventory += inv.mainInventory;
+      product.finishedGoodsIncomingInventory += inv.incomingInventory;
+      product.finishedGoodsFinishingInventory += inv.finishingInventory;
+      product.finishedGoodsOversoldInventory += inv.oversoldInventory;
+      product.finishedGoodsPrepareInventory += inv.prepareInventory;
+      product.finishedGoodsReturnInventory += inv.returnInventory;
+      product.finishedGoodsPurchaseInventory += inv.purchaseInventory;
+    });
+
+    return (
       product.finishedGoodsMainInventory +
       product.finishedGoodsIncomingInventory +
       product.finishedGoodsFinishingInventory +
       product.finishedGoodsOversoldInventory +
       product.finishedGoodsPrepareInventory +
       product.finishedGoodsReturnInventory +
-      product.finishedGoodsPurchaseInventory;
+      product.finishedGoodsPurchaseInventory
+    );
   }
 
-  _calculateGeneralGoods(product, regular, inventoryMap, comboMap) {
-    const combos = comboMap[regular.productCode] || [];
+  // 计算产品的通货库存
+  _calculateGeneralGoods(product) {
+    // 查找该货号的所有常态商品
+    const regulars = this._repository.findRegularProductsByItemNumber(
+      product.itemNumber,
+    );
 
-    combos.forEach((combo) => {
-      const subInv = inventoryMap[combo.subProductCode];
-      const quantity = Number(combo.subProductQuantity) || 1;
+    regulars.forEach((r) => {
+      const combos = this._repository.findComboProducts(r.productCode);
+      if (combos.length === 0) return;
+      combos.forEach((combo) => {
+        const subPC = combo.subProductCode;
 
-      if (subInv) {
-        product.generalGoodsMainInventory +=
-          Number(subInv.mainInventory || 0) * quantity;
+        if (subPC.startsWith("YH") || subPC.startsWith("FL")) return;
+
+        const quantity = combo.subProductQuantity;
+        const subInv = this._repository.findInventory(subPC);
+
+        product.generalGoodsMainInventory += subInv.mainInventory / quantity;
         product.generalGoodsIncomingInventory +=
-          Number(subInv.incomingInventory || 0) * quantity;
+          subInv.incomingInventory / quantity;
         product.generalGoodsFinishingInventory +=
-          Number(subInv.finishingInventory || 0) * quantity;
+          subInv.finishingInventory / quantity;
         product.generalGoodsOversoldInventory +=
-          Number(subInv.oversoldInventory || 0) * quantity;
+          subInv.oversoldInventory / quantity;
         product.generalGoodsPrepareInventory +=
-          Number(subInv.prepareInventory || 0) * quantity;
+          subInv.prepareInventory / quantity;
         product.generalGoodsReturnInventory +=
-          Number(subInv.returnInventory || 0) * quantity;
+          subInv.returnInventory / quantity;
         product.generalGoodsPurchaseInventory +=
-          Number(subInv.purchaseInventory || 0) * quantity;
-      }
+          subInv.purchaseInventory / quantity;
+      });
     });
 
-    product.generalGoodsTotalInventory =
+    return (
       product.generalGoodsMainInventory +
       product.generalGoodsIncomingInventory +
       product.generalGoodsFinishingInventory +
       product.generalGoodsOversoldInventory +
       product.generalGoodsPrepareInventory +
       product.generalGoodsReturnInventory +
-      product.generalGoodsPurchaseInventory;
+      product.generalGoodsPurchaseInventory
+    );
   }
 
-  _groupSalesData(salesData) {
-    const groups = {};
-    salesData.forEach((sale) => {
-      if (!sale.itemNumber) return;
-      if (!groups[sale.itemNumber]) {
-        groups[sale.itemNumber] = [];
-      }
-      groups[sale.itemNumber].push(sale);
-    });
-    return groups;
+  // 计算指定货号的库存
+  _calculateProductInventory(product) {
+    // 1.重置库存
+    this._resetInventoryFields(product);
+    // 2.计算成品库存
+    const fgTotalInventory = this._calculateFinishedGoods(product);
+    // 3.计算通货库存
+    const ggTotalInventory = this._calculateGeneralGoods(product);
+
+    return fgTotalInventory + ggTotalInventory;
   }
 
-  _applySalesToProduct(product, sales, last7Days) {
-    let changed = false;
+  // 检查业务实体是否为今日最新
+  _checkDataExpired(entityName) {
+    if (!["RegularProduct", "Inventory", "ComboProduct"].includes(entityName))
+      return false;
 
-    // 重置近7天数据
-    const oldSales = product.salesQuantityOfLast7Days;
+    const systemRecord = this._repository.getSystemRecord();
+    const importDate = null;
 
-    product.salesQuantityOfLast7Days = 0;
-    product.salesAmountOfLast7Days = 0;
+    switch (entityName) {
+      case "RegularProduct":
+        importDate = systemRecord.importDateOfRegularProduct;
+        break;
 
-    // 计算近7天销售
-    sales.forEach((sale) => {
-      if (sale.salesDate && sale.salesDate.includes(last7Days)) {
-        product.salesQuantityOfLast7Days += Number(sale.salesQuantity || 0);
-        product.salesAmountOfLast7Days += Number(sale.salesAmount || 0);
-      }
-    });
+      case "Inventory":
+        importDate = systemRecord.importDateOfInventory;
+        break;
 
-    // 计算件单价
-    product.unitPriceOfLast7Days =
-      product.salesQuantityOfLast7Days > 0
-        ? product.salesAmountOfLast7Days / product.salesQuantityOfLast7Days
-        : 0;
-
-    if (oldSales !== product.salesQuantityOfLast7Days) {
-      changed = true;
+      case "ComboProduct":
+        importDate = systemRecord.importDateOfComboProduct;
+        break;
     }
 
-    return changed;
+    if (importDate !== _excelDAO.formatDate(new Date())) {
+      return true;
+    }
   }
 
-  _getLast7DaysRange() {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(today.getDate() - 7);
-    const end = new Date(today);
-    end.setDate(today.getDate() - 1);
+  // 更新系统记录
+  _updateSystemRecord(entityName) {
+    if (!["RegularProduct", "ProductPrice", "Inventory"].includes(entityName))
+      return;
 
-    const format = (date) =>
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-    return `${format(start)}~${format(end)}`;
-  }
-
-  _updateSystemRecord() {
     const systemRecord = this._repository.getSystemRecord();
-    const now = validationEngine.formatDate(new Date());
+    const now = new Date();
 
-    systemRecord.updateDateOfRegularProduct = now;
-    systemRecord.updateDateOfProductPrice = now;
-    systemRecord.updateDateOfInventory = now;
-    systemRecord.updateDateOfProductSales = now;
+    switch (entityName) {
+      case "RegularProduct":
+        systemRecord.updateDateOfRegularProduct = now;
+        break;
+      case "ProductPrice":
+        systemRecord.updateDateOfProductPrice = now;
+        break;
+      case "Inventory":
+        systemRecord.updateDateOfInventory = now;
+        break;
+    }
 
     this._repository.save("SystemRecord", [systemRecord]);
   }
 
-  /**
-   * 生成更新报告
-   */
+  // 获取最新的商品
+  _getLatestProducts() {
+    this._repository.refresh("Product");
+    return this._repository.findProducts();
+  }
+
+  // 从常态商品更新数据
+  _updateFromRegularProducts(products) {
+    const entityName = "RegularProduct";
+    const result = {
+      products: [],
+      totalProducts: 0,
+      newProducts: 0,
+      updatedProducts: 0,
+      errors: [],
+    };
+
+    try {
+      result.totalProducts = products.length;
+
+      // 1.检查常态商品是否为最新
+      if (this._checkDataExpired(entityName)) {
+        throw new Error(`【常态商品】今日尚未导入，请先导入！`);
+      }
+
+      // 2. 更新现有常态商品
+      const updatedProducts = products.map((product) => {
+        return this._updateProductFromRegulars(product);
+      });
+
+      // 3. 添加新货号
+      const existingItemNumbers = new Set(products.map((p) => p.itemNumber));
+      const AllregularProducts = this._repository.findRegularProducts();
+      const AllregularItemNumbers = new Set(
+        AllregularProducts.map((rp) => rp.itemNumber),
+      );
+
+      const newProducts = [];
+      for (const itemNumber of AllregularItemNumbers) {
+        if (!existingItemNumbers.has(itemNumber)) {
+          const newProduct = this._createProductFromRegulars(itemNumber);
+          if (newProduct) {
+            newProducts.push(newProduct);
+            result.newProducts++;
+          }
+        }
+      }
+
+      // 4.合并数据
+      const allProducts = [...updatedProducts, ...newProducts];
+      result.updatedProducts = updatedProducts.length;
+
+      result.products = allProducts;
+
+      // 5.更新系统记录
+      this._updateSystemRecord(entityName);
+
+      return result;
+    } catch (e) {
+      result.errors.push(e.message);
+      throw e;
+    }
+  }
+
+  // 从价格表更新产品价格
+  updateFromPriceData() {
+    const entityName = "ProductPrice";
+    const entityConfig = this._config.get(entityName);
+    const result = {
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    };
+
+    try {
+      // 1.获取最新的货品
+      this._repository.refresh("Product");
+      const products = this._repository.findProducts();
+
+      // 2.验证最新商品价格数据
+      this._repository.refresh(entityName);
+
+      const priceData = this._repository.findProductPrices();
+      const validationResult = this._validationEngine.validateAll(
+        priceData,
+        entityConfig,
+      );
+
+      if (!validationResult.valid) {
+        const errorMsg = this._validationEngine.formatErrors(
+          validationResult,
+          entityConfig.worksheet,
+        );
+        throw new Error(errorMsg);
+      }
+
+      // 3.更新产品价格
+      products.forEach((product) => {
+        const changed = this._applyPriceToProduct(product);
+        if (changed) {
+          result.updated++;
+        } else {
+          result.skipped++;
+        }
+      });
+
+      this._repository.save("Product", products);
+
+      // 4. 更新系统记录
+      this._updateSystemRecord(entityName);
+
+      return result;
+    } catch (e) {
+      result.errors.push(e.message);
+      throw e;
+    }
+  }
+
+  // 从库存数据更新产品库存
+  updateFromInventory() {
+    const entityName = "Inventory";
+    const result = {
+      updated: 0,
+      zeroInventory: 0,
+      errors: [],
+    };
+
+    try {
+      // 1.检查组合装和商品库存是否更新
+      if (this._checkDataExpired("ComboProduct")) {
+        throw new Error("【组合商品】今日尚未导入，请先导入！");
+      }
+      if (this._checkDataExpired(entityName)) {
+        throw new Error("【商品库存】今日尚未导入，请先导入！");
+      }
+
+      // 2.获取最新的货品
+      this._repository.refresh("Product");
+      const products = this._repository.findProducts();
+
+      // 3.计算库存
+      products.forEach((product) => {
+        const before = product.totalInventory;
+        const after = this._calculateProductInventory(product);
+
+        if (before !== after) result.updated++;
+        if (after === 0) result.zeroInventory++;
+      });
+
+      this._repository.save("Product", products);
+
+      // 4. 更新系统记录
+      this._updateSystemRecord(entityName);
+
+      return result;
+    } catch (e) {
+      result.errors.push(e.message);
+      throw e;
+    }
+  }
+
+  // 更新常态商品
+  updateRegularProduct() {
+    const products = this._getLatestProducts();
+    const result = this._updateFromRegularProducts(products);
+    this._repository.save("Product", result.products);
+  }
+
+  // 更新商品价格
+  updateProductPrice() {}
+
+  // 更新商品库存
+  updateInventory() {}
+
+  // 生成更新报告
   generateUpdateReport(results) {
     let report = "========== 数据更新报告 ==========\n\n";
 
@@ -541,12 +475,6 @@ class ProductService {
       report += `\n【商品库存】\n`;
       report += `  库存变动: ${results.inventory.updated}\n`;
       report += `  零库存: ${results.inventory.zeroInventory}\n`;
-    }
-
-    if (results.sales) {
-      report += `\n【商品销售】\n`;
-      report += `  销量变动: ${results.sales.updated}\n`;
-      report += `  有销量: ${results.sales.withSales}\n`;
     }
 
     if (results.errors.length > 0) {

@@ -23,10 +23,7 @@ class IndexConfig {
     this.PRODUCT_PRICE_INDEXES = [{ fields: ["itemNumber"], unique: true }];
 
     // ========== 常态商品实体索引配置 ==========
-    this.REGULAR_PRODUCT_INDEXES = [
-      { fields: ["itemNumber"], unique: false },
-      { fields: ["productCode"], unique: true },
-    ];
+    this.REGULAR_PRODUCT_INDEXES = [{ fields: ["itemNumber"], unique: false }];
 
     // ========== 库存实体索引配置 ==========
     this.INVENTORY_INDEXES = [{ fields: ["productCode"], unique: true }];

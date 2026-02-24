@@ -990,14 +990,20 @@ class DataConfig {
             return new Date();
           },
         },
-        updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
+        updateDateOfProductPrice: { title: "商品价格更新日期", type: "date" },
         updateDateOfRegularProduct: {
           title: "常态商品更新日期",
-          type: "string",
+          type: "date",
         },
-        updateDateOfComboProduct: { title: "组合商品更新日期", type: "string" },
-        updateDateOfInventory: { title: "商品库存更新日期", type: "string" },
-        updateDateOfProductSales: { title: "商品销售更新日期", type: "string" },
+        updateDateOfInventory: { title: "商品库存更新日期", type: "date" },
+
+        importDateOfRegularProduct: {
+          title: "常态商品导入日期",
+          type: "date",
+        },
+        importDateOfComboProduct: { title: "组合商品导入日期", type: "date" },
+        importDateOfInventory: { title: "商品库存导入日期", type: "date" },
+        importDateOfProductSales: { title: "商品销售导入日期", type: "date" },
       },
     };
 

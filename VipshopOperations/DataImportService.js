@@ -1,9 +1,3 @@
-// ============================================================================
-// 数据导入服务
-// 功能：从“导入数据”工作表读取数据，智能识别实体类型并导入
-// 特点：销售数据追加模式，其他实体覆盖模式
-// ============================================================================
-
 class DataImportService {
   constructor(repository, excelDAO) {
     this._repository = repository;
@@ -11,6 +5,7 @@ class DataImportService {
     this._config = DataConfig.getInstance();
     this._identifier = EntityIdentifier.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
+    this._importableEntities = this._identifier.getImportableEntities();
   }
 
   // 覆盖模式导入
@@ -104,6 +99,30 @@ class DataImportService {
     };
   }
 
+  // 更新系统记录
+  _updateSystemRecord(entityName) {
+    if (!this._importableEntities.includes(entityName)) return;
+
+    const systemRecord = this._repository.getSystemRecord();
+    const now = new Date();
+
+    switch (entityName) {
+      case "RegularProduct":
+        systemRecord.importDateOfRegularProduct = now;
+        break;
+      case "Inventory":
+        systemRecord.importDateOfInventory = now;
+        break;
+      case "ComboProduct":
+        systemRecord.importDateOfComboProduct = now;
+        break;
+      case "ProductSales":
+        systemRecord.importDateOfProductSales = now;
+    }
+
+    this._repository.save("SystemRecord", [systemRecord]);
+  }
+
   // 执行数据导入
   import() {
     // 1. 获取导入数据
@@ -131,8 +150,7 @@ class DataImportService {
     const entityName = this._identifier.identify(headers);
 
     if (!entityName) {
-      const importableEntities = this._identifier.getImportableEntities();
-      const requiredTitles = importableEntities
+      const requiredTitles = this._importableEntities
         .map((entityName) => {
           const entityConfig = this._config.get(entityName);
           return `【${entityConfig.worksheet}】: ${entityConfig.requiredTitles.toString()}`;
@@ -163,7 +181,10 @@ class DataImportService {
       result = this._overwriteData(entityName, items);
     }
 
-    // 8. 清空导入数据表
+    // 8.更新系统记录
+    this._updateSystemRecord(entityName);
+
+    // 9. 清空导入数据表
     this._excelDAO.clear("ImportData");
 
     return result;

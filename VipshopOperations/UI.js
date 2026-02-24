@@ -1,6 +1,7 @@
 let _excelDAO = null;
 let _repository = null;
 let _dataImportService = null;
+let _productService = null;
 
 function _initializeServices() {
   if (_repository) return;
@@ -10,6 +11,7 @@ function _initializeServices() {
     _repository = new Repository(_excelDAO);
 
     _dataImportService = new DataImportService(_repository, _excelDAO);
+    _productService = new ProductService(_repository);
 
     // 注册所有索引
     const indexConfig = IndexConfig.getInstance();
@@ -23,6 +25,8 @@ function _initializeServices() {
     throw e;
   }
 }
+
+// 导入数据
 function UserForm1_CommandButton6_Click() {
   try {
     const result = _dataImportService.import();
@@ -33,6 +37,7 @@ function UserForm1_CommandButton6_Click() {
   }
 }
 
+// 程序主入口
 function Main() {
   _initializeServices();
   UserForm1.Show();
@@ -43,7 +48,7 @@ function Main() {
 // let _dataImportService = null;
 // let _reportEngine = null;
 // let _profitCalculator = null;
-// let _productService = null;
+
 // let _activityService = null;
 
 // function _initializeServices() {

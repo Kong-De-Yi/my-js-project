@@ -63,7 +63,7 @@ class EntityIdentifier {
     return null;
   }
 
-  // 返回可以导入的所有实体
+  // 返回可以导入的所有实体名称
   getImportableEntities() {
     return this._importableEntities;
   }

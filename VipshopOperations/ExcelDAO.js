@@ -262,7 +262,12 @@ class ExcelDAO {
     return ActiveSheet;
   }
 
-  parseDate(dateStr) {
+  // 对外提供格式化日期服务
+  formatDate(value) {
+    return this._formatDate(value);
+  }
+
+  _parseDate(dateStr) {
     if (!dateStr) return null;
 
     const timestamp = Date.parse(String(dateStr));
@@ -310,7 +315,7 @@ class ExcelDAO {
 
     const cleanValue = String(value).replace(/^'/, "");
 
-    const date = this.parseDate(cleanValue);
+    const date = this._parseDate(cleanValue);
     if (!date) return undefined;
 
     const year = date.getFullYear();
@@ -322,7 +327,7 @@ class ExcelDAO {
 
   // 格式化日期
   _formatDate(value) {
-    const date = this.parseDate(value);
+    const date = this._parseDate(value);
     if (!date) return "";
 
     const year = date.getFullYear();
