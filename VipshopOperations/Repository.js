@@ -907,9 +907,11 @@ class Repository {
     }
 
     const newRecord = {
+      recordDate: new Date(),
       updateDateOfProductPrice: undefined,
       updateDateOfRegularProduct: undefined,
       updateDateOfInventory: undefined,
+      importDateOfProductPrice: undefined,
       importDateOfRegularProduct: undefined,
       importDateOfComboProduct: undefined,
       importDateOfInventory: undefined,

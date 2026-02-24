@@ -3,9 +3,65 @@ class DataImportService {
     this._repository = repository;
     this._excelDAO = excelDAO;
     this._config = DataConfig.getInstance();
-    this._identifier = EntityIdentifier.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
-    this._importableEntities = this._identifier.getImportableEntities();
+    this._importableEntities = this._getImportableEntities();
+  }
+
+  // 返回可以导入的所有实体名称
+  _getImportableEntities() {
+    const importableEntities = [];
+
+    // 获取可导入业务实体
+    for (const [key, value] of Object.entries(this._config.getAll())) {
+      if (value?.canImport === true) {
+        importableEntities.push(key);
+      }
+    }
+
+    return importableEntities;
+  }
+
+  // 验证实体是否支持导入
+  _canImport(entityName) {
+    return this._importableEntities.includes(entityName);
+  }
+
+  // 获取实体的导入模式
+  _getImportMode(entityName) {
+    if (!this._canImport(entityName)) return null;
+
+    const entity = this._config.get(entityName);
+    return entity?.importMode || null;
+  }
+
+  // 检查表头是否匹配实体的必填字段
+  _matchesEntity(entityName, headers) {
+    const entity = this._config.get(entityName);
+    if (!entity) return false;
+
+    const requiredTitles = entity.requiredTitles || [];
+    if (requiredTitles.length === 0) return false;
+
+    // 检查是否包含所有必填字段
+    return requiredTitles.every((title) => headers.includes(title));
+  }
+
+  // 识别导入数据的实体类型
+  _identify(headers) {
+    if (!headers || headers.length === 0) {
+      return null;
+    }
+
+    // 标准化表头：去除前后空格
+    const normalizedHeaders = headers.map((h) => String(h).trim());
+
+    for (const entityName of this._importableEntities) {
+      if (this._matchesEntity(entityName, normalizedHeaders)) {
+        return entityName;
+      }
+    }
+
+    return null;
   }
 
   // 覆盖模式导入
@@ -107,6 +163,9 @@ class DataImportService {
     const now = new Date();
 
     switch (entityName) {
+      case "ProductPrice":
+        systemRecord.importDateOfProductPrice = now;
+        break;
       case "RegularProduct":
         systemRecord.importDateOfRegularProduct = now;
         break;
@@ -147,7 +206,7 @@ class DataImportService {
     const headers = data[0].map((h) => String(h).trim());
 
     // 3. 识别实体类型
-    const entityName = this._identifier.identify(headers);
+    const entityName = this._identify(headers);
 
     if (!entityName) {
       const requiredTitles = this._importableEntities
@@ -163,12 +222,12 @@ class DataImportService {
     }
 
     // 4. 验证是否支持导入
-    if (!this._identifier.canImport(entityName)) {
+    if (!this._canImport(entityName)) {
       throw new Error(`实体【${entityName}】不支持导入操作`);
     }
 
     // 5. 获取导入模式
-    const mode = this._identifier.getImportMode(entityName);
+    const mode = this._getImportMode(entityName);
 
     // 6. 读取数据
     const items = this._excelDAO.read(entityName, "导入数据");

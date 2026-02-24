@@ -506,36 +506,42 @@ class DataConfig {
     // ========== 2. 商品价格实体 ==========
     this.PRODUCT_PRICE = {
       worksheet: "商品价格",
-
+      canImport: true,
+      importMode: "overwrite",
+      requiredTitles: ["货号", "成本价", "最低价", "白金价", "中台1", "中台2"],
       uniqueKey: "itemNumber",
+
       fields: {
-        designNumber: { title: "设计号", type: "string" },
         itemNumber: {
           title: "货号",
           type: "string",
           validators: [{ type: "required" }],
         },
-        picture: { title: "图片", type: "string" },
+
         costPrice: {
           title: "成本价",
           type: "number",
           validators: [{ type: "required" }, { type: "positive" }],
         },
+
         lowestPrice: {
           title: "最低价",
           type: "number",
           validators: [{ type: "required" }, { type: "positive" }],
         },
+
         silverPrice: {
           title: "白金价",
           type: "number",
           validators: [{ type: "required" }, { type: "positive" }],
         },
+
         userOperations1: {
           title: "中台1",
           type: "number",
           validators: [{ type: "nonNegative" }],
         },
+
         userOperations2: {
           title: "中台2",
           type: "number",
@@ -568,6 +574,7 @@ class DataConfig {
         "P_SPU",
       ],
       uniqueKey: "productCode",
+
       fields: {
         productCode: {
           title: "条码",
@@ -753,6 +760,7 @@ class DataConfig {
         "采购在途数",
       ],
       uniqueKey: "productCode",
+
       fields: {
         productCode: {
           title: "商品编码",
@@ -807,6 +815,7 @@ class DataConfig {
         fields: ["productCode", "subProductCode"],
         message: "组合商品实体编码与子商品编码组合必须唯一",
       },
+
       fields: {
         productCode: {
           title: "组合商品实体编码",
@@ -829,7 +838,7 @@ class DataConfig {
       },
     };
 
-    // ========== 6. 商品销售实体（增强版 - 添加索引字段）==========
+    // ========== 6. 商品销售实体==========
     this.PRODUCT_SALES = {
       worksheet: "商品销售",
       canImport: true,
@@ -850,6 +859,7 @@ class DataConfig {
         fields: ["itemNumber", "salesDate"],
         message: "同一货号同一天的销售数据只能有一条",
       },
+
       fields: {
         // ----- 基础字段 -----
         salesDate: {
@@ -913,8 +923,6 @@ class DataConfig {
           title: "所属年份",
           type: "computed",
           persist: false,
-          validators: [{ type: "required" }],
-          description: "从销售日期中提取年份，用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
             const date = _validationEngine.parseDate(obj.salesDate);
@@ -926,8 +934,6 @@ class DataConfig {
           title: "年月",
           type: "computed",
           persist: false,
-          validators: [{ type: "required" }],
-          description: "年月组合（YYYY-MM），用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
             const date = _validationEngine.parseDate(obj.salesDate);
@@ -942,8 +948,6 @@ class DataConfig {
           title: "年周",
           type: "computed",
           persist: false,
-          validators: [{ type: "required" }],
-          description: "年周组合（YYYY-WW），用于快速筛选",
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
             const date = _validationEngine.parseDate(obj.salesDate);
@@ -990,20 +994,21 @@ class DataConfig {
             return new Date();
           },
         },
-        updateDateOfProductPrice: { title: "商品价格更新日期", type: "date" },
+        updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
         updateDateOfRegularProduct: {
           title: "常态商品更新日期",
-          type: "date",
+          type: "string",
         },
-        updateDateOfInventory: { title: "商品库存更新日期", type: "date" },
+        updateDateOfInventory: { title: "商品库存更新日期", type: "string" },
 
+        importDateOfProductPrice: { title: "商品价格导入日期", type: "string" },
         importDateOfRegularProduct: {
           title: "常态商品导入日期",
-          type: "date",
+          type: "string",
         },
-        importDateOfComboProduct: { title: "组合商品导入日期", type: "date" },
-        importDateOfInventory: { title: "商品库存导入日期", type: "date" },
-        importDateOfProductSales: { title: "商品销售导入日期", type: "date" },
+        importDateOfComboProduct: { title: "组合商品导入日期", type: "string" },
+        importDateOfInventory: { title: "商品库存导入日期", type: "string" },
+        importDateOfProductSales: { title: "商品销售导入日期", type: "string" },
       },
     };
 

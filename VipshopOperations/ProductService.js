@@ -39,6 +39,7 @@ class ProductService {
     product.isOutOfStock = this._getOutOfStockSizes(regulars);
     product.MID = first.MID;
     product.P_SPU = first.P_SPU;
+    product.brandSN = first.brandSN;
 
     // 计算可售库存
     product.sellableInventory = regulars.reduce(
@@ -111,10 +112,6 @@ class ProductService {
       product.userOperations2 = price.userOperations2;
       changed = true;
     }
-
-    // 更新图片和设计号
-    product.designNumber = price.designNumber;
-    product.picture = price.picture;
 
     return changed;
   }
@@ -190,6 +187,7 @@ class ProductService {
 
         const quantity = combo.subProductQuantity;
         const subInv = this._repository.findInventory(subPC);
+        if (!subInv) return;
 
         product.generalGoodsMainInventory += subInv.mainInventory / quantity;
         product.generalGoodsIncomingInventory +=
@@ -218,27 +216,23 @@ class ProductService {
     );
   }
 
-  // 计算指定货号的库存
-  _calculateProductInventory(product) {
-    // 1.重置库存
-    this._resetInventoryFields(product);
-    // 2.计算成品库存
-    const fgTotalInventory = this._calculateFinishedGoods(product);
-    // 3.计算通货库存
-    const ggTotalInventory = this._calculateGeneralGoods(product);
-
-    return fgTotalInventory + ggTotalInventory;
-  }
-
   // 检查业务实体是否为今日最新
   _checkDataExpired(entityName) {
-    if (!["RegularProduct", "Inventory", "ComboProduct"].includes(entityName))
+    if (
+      !["ProductPrice", "RegularProduct", "Inventory", "ComboProduct"].includes(
+        entityName,
+      )
+    )
       return false;
 
     const systemRecord = this._repository.getSystemRecord();
-    const importDate = null;
+    let importDate = null;
 
     switch (entityName) {
+      case "ProductPrice":
+        importDate = systemRecord.importDateOfProductPrice;
+        break;
+
       case "RegularProduct":
         importDate = systemRecord.importDateOfRegularProduct;
         break;
@@ -252,9 +246,11 @@ class ProductService {
         break;
     }
 
-    if (importDate !== _excelDAO.formatDate(new Date())) {
-      return true;
-    }
+    // 没有更新日期默认过期
+    if (!importDate) return true;
+
+    importDate = Date.parse(importDate);
+    return new Date() - importDate > 12 * 60 * 60 * 1000;
   }
 
   // 更新系统记录
@@ -288,157 +284,114 @@ class ProductService {
 
   // 从常态商品更新数据
   _updateFromRegularProducts(products) {
-    const entityName = "RegularProduct";
     const result = {
       products: [],
       totalProducts: 0,
       newProducts: 0,
       updatedProducts: 0,
-      errors: [],
     };
 
-    try {
-      result.totalProducts = products.length;
+    result.totalProducts = products.length;
 
-      // 1.检查常态商品是否为最新
-      if (this._checkDataExpired(entityName)) {
-        throw new Error(`【常态商品】今日尚未导入，请先导入！`);
-      }
+    // 1.检查常态商品是否为最新
+    if (this._checkDataExpired("RegularProduct")) {
+      throw new Error(`【常态商品】今日尚未导入，请先导入！`);
+    }
 
-      // 2. 更新现有常态商品
-      const updatedProducts = products.map((product) => {
-        return this._updateProductFromRegulars(product);
-      });
+    // 2. 更新现有常态商品
+    const updatedProducts = products.map((product) => {
+      return this._updateProductFromRegulars(product);
+    });
 
-      // 3. 添加新货号
-      const existingItemNumbers = new Set(products.map((p) => p.itemNumber));
-      const AllregularProducts = this._repository.findRegularProducts();
-      const AllregularItemNumbers = new Set(
-        AllregularProducts.map((rp) => rp.itemNumber),
-      );
+    // 3. 添加新货号
+    const existingItemNumbers = new Set(products.map((p) => p.itemNumber));
+    const AllregularProducts = this._repository.findRegularProducts();
+    const AllregularItemNumbers = new Set(
+      AllregularProducts.map((rp) => rp.itemNumber),
+    );
 
-      const newProducts = [];
-      for (const itemNumber of AllregularItemNumbers) {
-        if (!existingItemNumbers.has(itemNumber)) {
-          const newProduct = this._createProductFromRegulars(itemNumber);
-          if (newProduct) {
-            newProducts.push(newProduct);
-            result.newProducts++;
-          }
+    const newProducts = [];
+    for (const itemNumber of AllregularItemNumbers) {
+      if (!existingItemNumbers.has(itemNumber)) {
+        const newProduct = this._createProductFromRegulars(itemNumber);
+        if (newProduct) {
+          newProducts.push(newProduct);
+          result.newProducts++;
         }
       }
-
-      // 4.合并数据
-      const allProducts = [...updatedProducts, ...newProducts];
-      result.updatedProducts = updatedProducts.length;
-
-      result.products = allProducts;
-
-      // 5.更新系统记录
-      this._updateSystemRecord(entityName);
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
     }
+
+    // 4.合并数据
+    const allProducts = [...updatedProducts, ...newProducts];
+    result.updatedProducts = updatedProducts.length;
+
+    result.products = allProducts;
+
+    return result;
   }
 
   // 从价格表更新产品价格
-  updateFromPriceData() {
-    const entityName = "ProductPrice";
-    const entityConfig = this._config.get(entityName);
+  _updateFromPriceData(products) {
     const result = {
+      products: [],
       updated: 0,
       skipped: 0,
-      errors: [],
     };
 
-    try {
-      // 1.获取最新的货品
-      this._repository.refresh("Product");
-      const products = this._repository.findProducts();
-
-      // 2.验证最新商品价格数据
-      this._repository.refresh(entityName);
-
-      const priceData = this._repository.findProductPrices();
-      const validationResult = this._validationEngine.validateAll(
-        priceData,
-        entityConfig,
-      );
-
-      if (!validationResult.valid) {
-        const errorMsg = this._validationEngine.formatErrors(
-          validationResult,
-          entityConfig.worksheet,
-        );
-        throw new Error(errorMsg);
-      }
-
-      // 3.更新产品价格
-      products.forEach((product) => {
-        const changed = this._applyPriceToProduct(product);
-        if (changed) {
-          result.updated++;
-        } else {
-          result.skipped++;
-        }
-      });
-
-      this._repository.save("Product", products);
-
-      // 4. 更新系统记录
-      this._updateSystemRecord(entityName);
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
+    // 1.检查商品价格是否为最新
+    if (this._checkDataExpired("ProductPrice")) {
+      throw new Error(`【商品价格】今日尚未导入，请先导入！`);
     }
+
+    // 2.更新产品价格
+    products.forEach((product) => {
+      const changed = this._applyPriceToProduct(product);
+      if (changed) {
+        result.updated++;
+      } else {
+        result.skipped++;
+      }
+    });
+
+    result.products = products;
+
+    return result;
   }
 
   // 从库存数据更新产品库存
-  updateFromInventory() {
-    const entityName = "Inventory";
+  _updateFromInventory(products) {
     const result = {
+      products: [],
       updated: 0,
       zeroInventory: 0,
-      errors: [],
     };
 
-    try {
-      // 1.检查组合装和商品库存是否更新
-      if (this._checkDataExpired("ComboProduct")) {
-        throw new Error("【组合商品】今日尚未导入，请先导入！");
-      }
-      if (this._checkDataExpired(entityName)) {
-        throw new Error("【商品库存】今日尚未导入，请先导入！");
-      }
-
-      // 2.获取最新的货品
-      this._repository.refresh("Product");
-      const products = this._repository.findProducts();
-
-      // 3.计算库存
-      products.forEach((product) => {
-        const before = product.totalInventory;
-        const after = this._calculateProductInventory(product);
-
-        if (before !== after) result.updated++;
-        if (after === 0) result.zeroInventory++;
-      });
-
-      this._repository.save("Product", products);
-
-      // 4. 更新系统记录
-      this._updateSystemRecord(entityName);
-
-      return result;
-    } catch (e) {
-      result.errors.push(e.message);
-      throw e;
+    // 1.检查组合装和商品库存是否更新
+    if (this._checkDataExpired("ComboProduct")) {
+      throw new Error("【组合商品】今日尚未导入，请先导入！");
     }
+    if (this._checkDataExpired("Inventory")) {
+      throw new Error("【商品库存】今日尚未导入，请先导入！");
+    }
+
+    // 2.计算库存
+    products.forEach((product) => {
+      const before = product.totalInventory;
+      // 1.重置库存
+      this._resetInventoryFields(product);
+      // 2.计算成品库存
+      const fgTotalInventory = this._calculateFinishedGoods(product);
+      // 3.计算通货库存
+      const ggTotalInventory = this._calculateGeneralGoods(product);
+
+      const after = fgTotalInventory + ggTotalInventory;
+
+      if (before !== after) result.updated++;
+      if (after === 0) result.zeroInventory++;
+    });
+
+    result.products = products;
+    return result;
   }
 
   // 更新常态商品
@@ -446,13 +399,65 @@ class ProductService {
     const products = this._getLatestProducts();
     const result = this._updateFromRegularProducts(products);
     this._repository.save("Product", result.products);
+    this._updateSystemRecord("RegularProduct");
+    return result;
   }
 
   // 更新商品价格
-  updateProductPrice() {}
+  updateProductPrice() {
+    const products = this._getLatestProducts();
+    const result = this._updateFromPriceData(products);
+    this._repository.save("Product", result.products);
+    this._updateSystemRecord("ProductPrice");
+    return result;
+  }
 
   // 更新商品库存
-  updateInventory() {}
+  updateInventory() {
+    const products = this._getLatestProducts();
+    const result = this._updateFromInventory(products);
+    this._repository.save("Product", result.products);
+    this._updateSystemRecord("Inventory");
+    return result;
+  }
+
+  // 一键更新
+  updateAll() {
+    const results = { errors: [] };
+    let result = null;
+    let products = this._getLatestProducts();
+
+    try {
+      result = this._updateFromRegularProducts(products);
+      this._updateSystemRecord("RegularProduct");
+      results.regular = result;
+      products = result.products;
+    } catch (e) {
+      results.errors.push(e.message);
+    }
+
+    try {
+      result = this._updateFromPriceData(products);
+      this._updateSystemRecord("ProductPrice");
+      results.price = result;
+      products = result.products;
+    } catch (e) {
+      results.errors.push(e.message);
+    }
+
+    try {
+      result = this._updateFromInventory(products);
+      this._updateSystemRecord("Inventory");
+      results.inventory = result;
+      products = result.products;
+    } catch (e) {
+      results.errors.push(e.message);
+    }
+
+    this._repository.save("Product", products);
+
+    return results;
+  }
 
   // 生成更新报告
   generateUpdateReport(results) {
@@ -477,7 +482,7 @@ class ProductService {
       report += `  零库存: ${results.inventory.zeroInventory}\n`;
     }
 
-    if (results.errors.length > 0) {
+    if (results?.errors?.length > 0) {
       report += `\n【错误信息】\n`;
       results.errors.forEach((err) => (report += `  ${err}\n`));
     }

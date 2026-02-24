@@ -1,17 +1,28 @@
 let _excelDAO = null;
 let _repository = null;
+let _profitCalculator = null;
 let _dataImportService = null;
 let _productService = null;
 
+// 程序主入口
+function Main() {
+  _initializeServices();
+  UserForm1.Show();
+}
+
+// 初始化
 function _initializeServices() {
   if (_repository) return;
 
   try {
     _excelDAO = new ExcelDAO();
     _repository = new Repository(_excelDAO);
+    _profitCalculator = new ProfitCalculator(_repository);
 
-    _dataImportService = new DataImportService(_repository, _excelDAO);
-    _productService = new ProductService(_repository);
+    // 注册上下文
+    _repository.setContext({
+      profitCalculator: _profitCalculator,
+    });
 
     // 注册所有索引
     const indexConfig = IndexConfig.getInstance();
@@ -20,6 +31,9 @@ function _initializeServices() {
     )) {
       _repository.registerIndexes(entityName, indexConfigs);
     }
+
+    _dataImportService = new DataImportService(_repository, _excelDAO);
+    _productService = new ProductService(_repository);
   } catch (e) {
     MsgBox(`系统初始化失败：${e.message}`, 0, "错误");
     throw e;
@@ -37,17 +51,61 @@ function UserForm1_CommandButton6_Click() {
   }
 }
 
-// 程序主入口
-function Main() {
-  _initializeServices();
-  UserForm1.Show();
+// 更新商品价格
+function UserForm1_CommandButton1_Click() {
+  try {
+    const result = _productService.updateProductPrice();
+    const results = { price: result };
+    const updateReport = _productService.generateUpdateReport(results);
+
+    MsgBox(updateReport, 64, "商品价格更新成功");
+  } catch (err) {
+    MsgBox(`商品价格更新失败：${err.message}`, 16, "错误");
+  }
+}
+
+// 更新常态商品
+function UserForm1_CommandButton2_Click() {
+  try {
+    const result = _productService.updateRegularProduct();
+    const results = { regular: result };
+    const updateReport = _productService.generateUpdateReport(results);
+
+    MsgBox(updateReport, 64, "常态商品更新成功");
+  } catch (err) {
+    MsgBox(`常态商品更新失败：${err.message}`, 16, "错误");
+  }
+}
+
+// 更新商品库存
+function UserForm1_CommandButton4_Click() {
+  try {
+    const result = _productService.updateInventory();
+    const results = { inventory: result };
+    const updateReport = _productService.generateUpdateReport(results);
+
+    MsgBox(updateReport, 64, "商品库存更新成功");
+  } catch (err) {
+    MsgBox(`商品库存更新失败：${err.message}`, 16, "错误");
+  }
+}
+
+// 一键更新
+function UserForm1_CommandButton5_Click() {
+  try {
+    const results = _productService.updateAll();
+    const updateReport = _productService.generateUpdateReport(results);
+
+    MsgBox(updateReport, 64, "商品库存更新成功");
+  } catch (err) {
+    MsgBox(`一键更新失败：${err.message}`, 16, "错误");
+  }
 }
 
 // let _repository = null;
 // let _excelDAO = null;
 // let _dataImportService = null;
 // let _reportEngine = null;
-// let _profitCalculator = null;
 
 // let _activityService = null;
 
@@ -57,7 +115,7 @@ function Main() {
 //   try {
 //     _excelDAO = new ExcelDAO();
 //     _repository = new Repository(_excelDAO);
-//     _profitCalculator = new ProfitCalculator(_repository);
+
 //     _productService = new ProductService(_repository, _profitCalculator);
 //     _dataImportService = new DataImportService(_repository, _excelDAO);
 //     _reportEngine = new ReportEngine(_repository, _excelDAO);
@@ -66,10 +124,6 @@ function Main() {
 //       _profitCalculator,
 //       _excelDAO,
 //     );
-
-//     _repository.setContext({
-//       profitCalculator: _profitCalculator,
-//     });
 
 //     // 注册所有索引
 //     const indexConfig = IndexConfig.getInstance();

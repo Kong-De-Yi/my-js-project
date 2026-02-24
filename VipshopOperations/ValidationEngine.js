@@ -277,7 +277,7 @@ class ValidationEngine {
 
     // 遍历验证字段的所有验证规则
     for (const validator of fieldConfig.validators) {
-      // 非必须字段跳过验证
+      // 非必须字段的空值跳过验证
       if (
         validator.type !== "required" &&
         (value == undefined || String(value).trim() === "")
