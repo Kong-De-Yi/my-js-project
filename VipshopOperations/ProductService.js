@@ -145,6 +145,8 @@ class ProductService {
       product.itemNumber,
     );
 
+    if (regulars.length === 0) return 0;
+
     // 累加成品条码的库存
     regulars.forEach((r) => {
       const inv = this._repository.findInventory(r.productCode);
@@ -176,6 +178,8 @@ class ProductService {
     const regulars = this._repository.findRegularProductsByItemNumber(
       product.itemNumber,
     );
+
+    if (regulars.length === 0) return 0;
 
     regulars.forEach((r) => {
       const combos = this._repository.findComboProducts(r.productCode);
@@ -331,34 +335,31 @@ class ProductService {
     this._repository.save("SystemRecord", [systemRecord]);
   }
 
-  // 获取最新的商品
-  _getLatestProducts() {
-    this._repository.refresh("Product");
-    return this._repository.findProducts();
-  }
-
   // 从常态商品更新数据
-  _updateFromRegularProducts(products) {
+  updateFromRegularProducts() {
     const result = {
-      products: [],
       totalProducts: 0,
-      newProducts: 0,
       updatedProducts: 0,
+      newProducts: 0,
     };
-
-    result.totalProducts = products.length;
 
     // 1.检查常态商品是否为最新
     if (this._checkDataExpired("RegularProduct")) {
       throw new Error(`【常态商品】今日尚未导入，请先导入！`);
     }
 
-    // 2. 更新现有常态商品
+    // 2.获取所有产品
+    const products = this._repository.findProducts();
+
+    result.totalProducts = products.length;
+
+    // 3. 更新现有常态商品
     const updatedProducts = products.map((product) => {
       return this._updateProductFromRegulars(product);
     });
+    result.updatedProducts = updatedProducts.length;
 
-    // 3. 添加新货号
+    // 4. 添加新货号
     const existingItemNumbers = new Set(products.map((p) => p.itemNumber));
     const AllregularProducts = this._repository.findRegularProducts();
     const AllregularItemNumbers = new Set(
@@ -376,19 +377,18 @@ class ProductService {
       }
     }
 
-    // 4.合并数据
+    // 5.合并数据
     const allProducts = [...updatedProducts, ...newProducts];
-    result.updatedProducts = updatedProducts.length;
 
-    result.products = allProducts;
+    this._repository.save("Product", allProducts);
+    this._updateSystemRecord("RegularProduct");
 
-    return result;
+    return { regular: result };
   }
 
   // 从价格表更新产品价格
-  _updateFromPriceData(products) {
+  updateFromPriceData() {
     const result = {
-      products: [],
       updated: 0,
       skipped: 0,
     };
@@ -398,7 +398,10 @@ class ProductService {
       throw new Error(`【商品价格】今日尚未导入，请先导入！`);
     }
 
-    // 2.更新产品价格
+    // 2.获取所有产品
+    const products = this._repository.findProducts();
+
+    // 3.更新产品价格
     products.forEach((product) => {
       const changed = this._applyPriceToProduct(product);
       if (changed) {
@@ -408,15 +411,15 @@ class ProductService {
       }
     });
 
-    result.products = products;
+    this._repository.save("Product", products);
+    this._updateSystemRecord("ProductPrice");
 
-    return result;
+    return { price: result };
   }
 
   // 从库存数据更新产品库存
-  _updateFromInventory(products) {
+  updateFromInventory() {
     const result = {
-      products: [],
       updated: 0,
       zeroInventory: 0,
     };
@@ -429,9 +432,13 @@ class ProductService {
       throw new Error("【商品库存】今日尚未导入，请先导入！");
     }
 
-    // 2.计算库存
+    // 2.获取所有产品
+    const products = this._repository.findProducts();
+
+    // 3.计算库存
     products.forEach((product) => {
       const before = product.totalInventory;
+
       // 重置库存
       this._resetInventoryFields(product);
       // 计算成品库存
@@ -445,14 +452,15 @@ class ProductService {
       if (after === 0) result.zeroInventory++;
     });
 
-    result.products = products;
-    return result;
+    this._repository.save("Product", products);
+    this._updateSystemRecord("Inventory");
+
+    return { inventory: result };
   }
 
   // 从销售数据更新产品销售信息
-  _updateFromSalesData(products) {
+  updateFromSalesData() {
     const result = {
-      products: [],
       updated: 0,
       skipped: 0,
     };
@@ -462,7 +470,10 @@ class ProductService {
       throw new Error(`【商品销售】今日尚未导入，请先导入！`);
     }
 
-    // 2.更新销售数据
+    // 2.获取所有产品
+    const products = this._repository.findProducts();
+
+    // 3.更新销售数据
     products.forEach((product) => {
       const changed = this._applySalesToProduct(product, 30);
       if (changed) {
@@ -472,94 +483,48 @@ class ProductService {
       }
     });
 
-    result.products = products;
-
-    return result;
-  }
-
-  // 更新常态商品
-  updateRegularProduct() {
-    const products = this._getLatestProducts();
-    const result = this._updateFromRegularProducts(products);
-    this._repository.save("Product", result.products);
-    this._updateSystemRecord("RegularProduct");
-    return result;
-  }
-
-  // 更新商品价格
-  updateProductPrice() {
-    const products = this._getLatestProducts();
-    const result = this._updateFromPriceData(products);
-    this._repository.save("Product", result.products);
-    this._updateSystemRecord("ProductPrice");
-    return result;
-  }
-
-  // 更新商品库存
-  updateInventory() {
-    const products = this._getLatestProducts();
-    const result = this._updateFromInventory(products);
-    this._repository.save("Product", result.products);
-    this._updateSystemRecord("Inventory");
-    return result;
-  }
-
-  // 更新商品销售
-  updateProductSales() {
-    const products = this._getLatestProducts();
-    const result = this._updateFromSalesData(products);
-    this._repository.save("Product", result.products);
+    this._repository.save("Product", products);
     this._updateSystemRecord("ProductSales");
-    return result;
+
+    return { sales: result };
   }
 
   // 一键更新
   updateAll() {
-    const results = { errors: [] };
-    let result = null;
-    let products = this._getLatestProducts();
+    let results = { errors: [] };
+    let result = {};
 
     // 1.更新常态商品
     try {
-      result = this._updateFromRegularProducts(products);
-      this._updateSystemRecord("RegularProduct");
-      results.regular = result;
-      products = result.products;
+      result = this.updateFromRegularProducts();
+      results = { ...results, ...result };
     } catch (e) {
       results.errors.push(e.message);
     }
 
     // 2.更新商品价格
     try {
-      result = this._updateFromPriceData(products);
-      this._updateSystemRecord("ProductPrice");
-      results.price = result;
-      products = result.products;
+      result = this.updateFromPriceData();
+      results = { ...results, ...result };
     } catch (e) {
       results.errors.push(e.message);
     }
 
     // 3.更新商品库存
     try {
-      result = this._updateFromInventory(products);
-      this._updateSystemRecord("Inventory");
-      results.inventory = result;
-      products = result.products;
+      result = this.updateFromInventory();
+      results = { ...results, ...result };
     } catch (e) {
       results.errors.push(e.message);
     }
 
     // 4.更新商品销售
     try {
-      result = this._updateFromSalesData(products);
-      this._updateSystemRecord("ProductSales");
-      results.sales = result;
-      products = result.products;
+      result = this.updateFromSalesData();
+      results = { ...results, ...result };
     } catch (e) {
       results.errors.push(e.message);
     }
-
-    this._repository.save("Product", products);
 
     return results;
   }

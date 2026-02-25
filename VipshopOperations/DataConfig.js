@@ -13,7 +13,11 @@ class DataConfig {
       worksheet: "货号总表",
       uniqueKey: "itemNumber",
       fields: {
-        itemNumber: { title: "货号", type: "string" },
+        itemNumber: {
+          title: "货号",
+          type: "string",
+          validators: [{ type: "required" }],
+        },
         styleNumber: { title: "款号", type: "string" },
         color: { title: "颜色", type: "string" },
         link: {
@@ -986,6 +990,7 @@ class DataConfig {
     this.SYSTEM_RECORD = {
       worksheet: "系统记录",
       uniqueKey: "recordDate",
+
       fields: {
         recordDate: {
           title: "记录日期",
@@ -1077,8 +1082,8 @@ class DataConfig {
     // ========== 10. 报表模板配置实体 ==========
     this.REPORT_TEMPLATE = {
       worksheet: "报表配置",
-
       uniqueKey: ["templateName", "fieldName"],
+
       fields: {
         templateName: { title: "模板名称", type: "string" },
         fieldName: { title: "字段", type: "string" },

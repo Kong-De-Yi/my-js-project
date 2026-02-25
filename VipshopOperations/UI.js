@@ -54,9 +54,11 @@ function UserForm1_CommandButton6_Click() {
 // 更新商品价格
 function UserForm1_CommandButton1_Click() {
   try {
-    const result = _productService.updateProductPrice();
-    const results = { price: result };
-    const updateReport = _productService.generateUpdateReport(results);
+    // 刷新货号总表缓存中的数据
+    _repository.refresh("Product");
+
+    const result = _productService.updateFromPriceData();
+    const updateReport = _productService.generateUpdateReport(result);
 
     MsgBox(updateReport, 64, "商品价格更新成功");
   } catch (err) {
@@ -67,9 +69,11 @@ function UserForm1_CommandButton1_Click() {
 // 更新常态商品
 function UserForm1_CommandButton2_Click() {
   try {
-    const result = _productService.updateRegularProduct();
-    const results = { regular: result };
-    const updateReport = _productService.generateUpdateReport(results);
+    // 刷新货号总表缓存中的数据
+    _repository.refresh("Product");
+
+    const result = _productService.updateFromRegularProducts();
+    const updateReport = _productService.generateUpdateReport(result);
 
     MsgBox(updateReport, 64, "常态商品更新成功");
   } catch (err) {
@@ -80,9 +84,11 @@ function UserForm1_CommandButton2_Click() {
 // 更新商品库存
 function UserForm1_CommandButton4_Click() {
   try {
-    const result = _productService.updateInventory();
-    const results = { inventory: result };
-    const updateReport = _productService.generateUpdateReport(results);
+    // 刷新货号总表缓存中的数据
+    _repository.refresh("Product");
+
+    const result = _productService.updateFromInventory();
+    const updateReport = _productService.generateUpdateReport(result);
 
     MsgBox(updateReport, 64, "商品库存更新成功");
   } catch (err) {
@@ -93,9 +99,11 @@ function UserForm1_CommandButton4_Click() {
 // 更新商品销售
 function UserForm1_CommandButton10_Click() {
   try {
-    const result = _productService.updateProductSales();
-    const results = { sales: result };
-    const updateReport = _productService.generateUpdateReport(results);
+    // 刷新货号总表缓存中的数据
+    _repository.refresh("Product");
+
+    const result = _productService.updateFromSalesData();
+    const updateReport = _productService.generateUpdateReport(result);
 
     MsgBox(updateReport, 64, "商品销售更新成功");
   } catch (err) {
@@ -106,10 +114,13 @@ function UserForm1_CommandButton10_Click() {
 // 一键更新
 function UserForm1_CommandButton5_Click() {
   try {
+    // 刷新货号总表缓存中的数据
+    _repository.refresh("Product");
+
     const results = _productService.updateAll();
     const updateReport = _productService.generateUpdateReport(results);
 
-    MsgBox(updateReport, 64, "商品库存更新成功");
+    MsgBox(updateReport, 64, "一键更新成功");
   } catch (err) {
     MsgBox(`一键更新失败：${err.message}`, 16, "错误");
   }

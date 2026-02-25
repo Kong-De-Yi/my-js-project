@@ -187,7 +187,7 @@ class ValidationEngine {
       return { valid: true, errors: [] };
     }
 
-    // 验证实体对象主键的字段完整性
+    // 验证实体对象主键字段是否为空
     const missingFields = [];
     fields.forEach((field) => {
       const value = entity[field];

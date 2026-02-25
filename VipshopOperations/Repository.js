@@ -63,6 +63,7 @@ class Repository {
       }
     }
 
+    // 根据索引配置建立索引
     indexConfigs.forEach((config) => {
       const sortedFields = [...config.fields].sort();
       const indexKey = sortedFields.join("|");
@@ -75,15 +76,13 @@ class Repository {
       index.clear();
 
       data.forEach((item) => {
+        // 构建组合索引值
         const value = this._getCompositeKey(item, sortedFields);
 
         if (value != undefined && String(value).trim() !== "") {
+          // 唯一性索引值直接覆盖
           if (config.unique) {
-            if (index.has(value)) {
-              item._indexError = `索引${indexKey}值"${value}"重复`;
-            } else {
-              index.set(value, item);
-            }
+            index.set(value, item);
           } else {
             if (!index.has(value)) {
               index.set(value, []);
@@ -831,13 +830,13 @@ class Repository {
     return this.find("ProductPrice", { itemNumber })[0];
   }
 
-  // 通过货号获取常态商品
-  findRegularProductsByItemNumber(itemNumber) {
-    return this.find("RegularProduct", { itemNumber });
-  }
   // 获取所有（符合条件）的常态商品
   findRegularProducts(query = {}) {
     return this.find("RegularProduct", query);
+  }
+  // 通过货号获取常态商品
+  findRegularProductsByItemNumber(itemNumber) {
+    return this.find("RegularProduct", { itemNumber });
   }
 
   // 通过条码获取库存
@@ -850,42 +849,6 @@ class Repository {
     return this.find("ComboProduct", { productCode });
   }
 
-  // 获取所有（符合条件）的商品销售
-  findProductSales(query = {}) {
-    return this.find("ProductSales", query);
-  }
-  // 获取指定年份的商品销售
-  findSalesByYear(year) {
-    return this.find("ProductSales", { salesYear: year });
-  }
-  // 获取指定年月的商品销售
-  findSalesByYearMonth(yearMonth) {
-    return this.find("ProductSales", { yearMonth });
-  }
-  // 获取最近N天的商品销售
-  findSalesLastNDays(days) {
-    return this.query("ProductSales", {
-      filter: {
-        daysSinceSale: { $lte: days },
-      },
-      sort: { field: "salesDate", order: "asc" },
-    });
-  }
-  // 获取指定时间段的商品销售
-  findSalesByDateRange(startDate, endDate) {
-    const start = this._excelDAO.parseDate(startDate)?.getTime() || 0;
-    const end = this._excelDAO.parseDate(endDate)?.getTime() || Infinity;
-
-    return this.query("ProductSales", {
-      filter: {
-        salesDate: (value) => {
-          const date = this._excelDAO.parseDate(value)?.getTime() || 0;
-          return date >= start && date <= end;
-        },
-      },
-      sort: { field: "salesDate", order: "asc" },
-    });
-  }
   // 获取指定货号在某个年份的销售
   findSalesByItemAndYear(itemNumber, year) {
     return this.find("ProductSales", {
@@ -927,6 +890,21 @@ class Repository {
         daysSinceSale: { $lte: days },
       },
       sort: { field: "salesDate", order: "desc" },
+    });
+  }
+  // 获取指定时间段的商品销售
+  findSalesByDateRange(startDate, endDate) {
+    const start = this._excelDAO.parseDate(startDate)?.getTime() || 0;
+    const end = this._excelDAO.parseDate(endDate)?.getTime() || Infinity;
+
+    return this.query("ProductSales", {
+      filter: {
+        salesDate: (value) => {
+          const date = this._excelDAO.parseDate(value)?.getTime() || 0;
+          return date >= start && date <= end;
+        },
+      },
+      sort: { field: "salesDate", order: "asc" },
     });
   }
 

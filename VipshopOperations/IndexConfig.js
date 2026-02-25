@@ -31,7 +31,6 @@ class IndexConfig {
     // ========== 组合商品实体索引配置 ==========
     this.COMBO_PRODUCT_INDEXES = [
       { fields: ["productCode"], unique: false },
-      { fields: ["subProductCode"], unique: false },
       { fields: ["productCode", "subProductCode"], unique: true },
     ];
 
@@ -39,18 +38,6 @@ class IndexConfig {
     this.PRODUCT_SALES_INDEXES = [
       // 联合主键索引：货号 + 日期
       { fields: ["itemNumber", "salesDate"], unique: true },
-
-      // 按年份索引 - 快速筛选某年的数据
-      { fields: ["salesYear"], unique: false },
-
-      // 按年月索引 - 快速筛选某年某月的数据
-      { fields: ["yearMonth"], unique: false },
-
-      // 按年周索引 - 快速筛选某年某周的数据
-      { fields: ["yearWeek"], unique: false },
-
-      // 按距今天数索引 - 快速筛选近N天的数据
-      { fields: ["daysSinceSale"], unique: false },
 
       // 按货号+年份索引 - 快速查询某货号某年的数据
       { fields: ["itemNumber", "salesYear"], unique: false },
