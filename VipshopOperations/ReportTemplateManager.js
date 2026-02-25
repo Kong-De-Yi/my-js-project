@@ -8,6 +8,7 @@ class ReportTemplateManager {
   }
 
   initializeDefaultTemplates() {
+    // 载入工作表中配置的模板
     const templates = this.loadTemplates();
 
     if (templates.size > 0) {
@@ -121,6 +122,7 @@ class ReportTemplateManager {
 
   // 创建报表模板并保存至报表配置工作表
   _createDefaultTemplate(templateName, columns) {
+    // 构造报表模板项目
     const templateData = [];
 
     columns.forEach((col) => {
@@ -136,6 +138,7 @@ class ReportTemplateManager {
       });
     });
 
+    // 查询已存在的报表模板项目
     let existingTemplates = [];
     try {
       existingTemplates = this._repository.findAll("ReportTemplate");
@@ -143,7 +146,7 @@ class ReportTemplateManager {
       existingTemplates = [];
     }
 
-    // 剔除已配置的报表模板
+    // 剔除已配置的同名报表模板项目
     const filtered = existingTemplates.filter(
       (t) => t.templateName !== templateName,
     );
