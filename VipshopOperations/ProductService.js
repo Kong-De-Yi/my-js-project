@@ -231,10 +231,14 @@ class ProductService {
     if (salesLastNDays.length === 0) return changed;
 
     // 2.计算近N天的拒退率
-    const rr = salesLastNDays.reduce((rd, sd) => {
-      rd.salesQuantity += sd.salesQuantity;
-      rd.rejectAndReturnCount += sd.rejectAndReturnCount;
-    }, 0);
+    const rr = salesLastNDays.reduce(
+      (rd, sd) => {
+        rd.salesQuantity += sd.salesQuantity;
+        rd.rejectAndReturnCount += sd.rejectAndReturnCount;
+        return rd;
+      },
+      { salesQuantity: 0, rejectAndReturnCount: 0 },
+    );
 
     product.rejectAndReturnRate = rr.salesQuantity
       ? rr.rejectAndReturnCount / rr.salesQuantity

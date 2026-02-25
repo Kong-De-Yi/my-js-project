@@ -903,7 +903,7 @@ class Repository {
         itemNumber,
         daysSinceSale: { $lte: days },
       },
-      sort: { field: "salesDate", order: "asc" },
+      sort: { field: "salesDate", order: "desc" },
     });
   }
 
