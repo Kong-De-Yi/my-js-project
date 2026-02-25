@@ -216,12 +216,52 @@ class ProductService {
     );
   }
 
+  // 根据货号取销售数据更新指定产品
+  _applySalesToProduct(product, lastNDays) {
+    let changed = false;
+
+    const oldRejectAndReturnRate = product.rejectAndReturnRate;
+    const oldFirstListingTime = product.firstListingTime;
+
+    // 1.获取最近N天的销售数据
+    const salesLastNDays = this._repository.findSalesLastNDays(
+      product.itemNumber,
+      lastNDays,
+    );
+    if (salesLastNDays.length === 0) return changed;
+
+    // 2.计算近N天的拒退率
+    const rr = salesLastNDays.reduce((rd, sd) => {
+      rd.salesQuantity += sd.salesQuantity;
+      rd.rejectAndReturnCount += sd.rejectAndReturnCount;
+    }, 0);
+
+    product.rejectAndReturnRate = rr.salesQuantity
+      ? rr.rejectAndReturnCount / rr.salesQuantity
+      : undefined;
+
+    // 更新首次上架时间
+    product.firstListingTime = salesLastNDays[0].firstListingTime;
+
+    if (
+      product.rejectAndReturnRate !== oldRejectAndReturnRate ||
+      product.firstListingTime !== oldFirstListingTime
+    )
+      changed = true;
+
+    return changed;
+  }
+
   // 检查业务实体是否为今日最新
   _checkDataExpired(entityName) {
     if (
-      !["ProductPrice", "RegularProduct", "Inventory", "ComboProduct"].includes(
-        entityName,
-      )
+      ![
+        "ProductPrice",
+        "RegularProduct",
+        "Inventory",
+        "ComboProduct",
+        "ProductSales",
+      ].includes(entityName)
     )
       return false;
 
@@ -244,6 +284,10 @@ class ProductService {
       case "ComboProduct":
         importDate = systemRecord.importDateOfComboProduct;
         break;
+
+      case "ProductSales":
+        importDate = systemRecord.importDateOfProductSales;
+        break;
     }
 
     // 没有更新日期默认过期
@@ -255,7 +299,11 @@ class ProductService {
 
   // 更新系统记录
   _updateSystemRecord(entityName) {
-    if (!["RegularProduct", "ProductPrice", "Inventory"].includes(entityName))
+    if (
+      !["RegularProduct", "ProductPrice", "Inventory", "ProductSales"].includes(
+        entityName,
+      )
+    )
       return;
 
     const systemRecord = this._repository.getSystemRecord();
@@ -270,6 +318,9 @@ class ProductService {
         break;
       case "Inventory":
         systemRecord.updateDateOfInventory = now;
+        break;
+      case "ProductSales":
+        systemRecord.updateDateOfProductSales = now;
         break;
     }
 
@@ -394,6 +445,34 @@ class ProductService {
     return result;
   }
 
+  // 从销售数据更新产品销售信息
+  _updateFromSalesData(products) {
+    const result = {
+      products: [],
+      updated: 0,
+      skipped: 0,
+    };
+
+    // 1.检查商品销售是否为最新
+    if (this._checkDataExpired("ProductSales")) {
+      throw new Error(`【商品销售】今日尚未导入，请先导入！`);
+    }
+
+    // 2.更新销售数据
+    products.forEach((product) => {
+      const changed = this._applySalesToProduct(product, 30);
+      if (changed) {
+        result.updated++;
+      } else {
+        result.skipped++;
+      }
+    });
+
+    result.products = products;
+
+    return result;
+  }
+
   // 更新常态商品
   updateRegularProduct() {
     const products = this._getLatestProducts();
@@ -421,12 +500,22 @@ class ProductService {
     return result;
   }
 
+  // 更新商品销售
+  updateProductSales() {
+    const products = this._getLatestProducts();
+    const result = this._updateFromSalesData(products);
+    this._repository.save("Product", result.products);
+    this._updateSystemRecord("ProductSales");
+    return result;
+  }
+
   // 一键更新
   updateAll() {
     const results = { errors: [] };
     let result = null;
     let products = this._getLatestProducts();
 
+    // 1.更新常态商品
     try {
       result = this._updateFromRegularProducts(products);
       this._updateSystemRecord("RegularProduct");
@@ -436,6 +525,7 @@ class ProductService {
       results.errors.push(e.message);
     }
 
+    // 2.更新商品价格
     try {
       result = this._updateFromPriceData(products);
       this._updateSystemRecord("ProductPrice");
@@ -445,10 +535,21 @@ class ProductService {
       results.errors.push(e.message);
     }
 
+    // 3.更新商品库存
     try {
       result = this._updateFromInventory(products);
       this._updateSystemRecord("Inventory");
       results.inventory = result;
+      products = result.products;
+    } catch (e) {
+      results.errors.push(e.message);
+    }
+
+    // 4.更新商品销售
+    try {
+      result = this._updateFromSalesData(products);
+      this._updateSystemRecord("ProductSales");
+      results.sales = result;
       products = result.products;
     } catch (e) {
       results.errors.push(e.message);
@@ -480,6 +581,12 @@ class ProductService {
       report += `\n【商品库存】\n`;
       report += `  库存变动: ${results.inventory.updated}\n`;
       report += `  零库存: ${results.inventory.zeroInventory}\n`;
+    }
+
+    if (results.sales) {
+      report += `\n【商品销售】\n`;
+      report += `  更新: ${results.sales.updated}\n`;
+      report += `  跳过: ${results.sales.skipped}\n`;
     }
 
     if (results?.errors?.length > 0) {

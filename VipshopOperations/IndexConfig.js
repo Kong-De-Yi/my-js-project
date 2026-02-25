@@ -35,7 +35,7 @@ class IndexConfig {
       { fields: ["productCode", "subProductCode"], unique: true },
     ];
 
-    // ========== 商品销售实体索引配置（增强版）==========
+    // ========== 商品销售实体索引配置）==========
     this.PRODUCT_SALES_INDEXES = [
       // 联合主键索引：货号 + 日期
       { fields: ["itemNumber", "salesDate"], unique: true },
@@ -49,6 +49,9 @@ class IndexConfig {
       // 按年周索引 - 快速筛选某年某周的数据
       { fields: ["yearWeek"], unique: false },
 
+      // 按距今天数索引 - 快速筛选近N天的数据
+      { fields: ["daysSinceSale"], unique: false },
+
       // 按货号+年份索引 - 快速查询某货号某年的数据
       { fields: ["itemNumber", "salesYear"], unique: false },
 
@@ -57,15 +60,6 @@ class IndexConfig {
 
       // 按货号+年周索引 - 快速查询某货号某周的数据
       { fields: ["itemNumber", "yearWeek"], unique: false },
-
-      // 按距今天数索引 - 快速筛选近N天的数据
-      { fields: ["daysSinceSale"], unique: false },
-
-      // 布尔标记索引
-      { fields: ["isCurrentYear"], unique: false },
-      { fields: ["isLastYear"], unique: false },
-      { fields: ["isYearBeforeLast"], unique: false },
-      { fields: ["isCurrentMonth"], unique: false },
     ];
 
     // ========== 品牌配置实体索引配置 ==========

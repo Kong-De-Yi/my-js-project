@@ -90,6 +90,19 @@ function UserForm1_CommandButton4_Click() {
   }
 }
 
+// 更新商品销售
+function UserForm1_CommandButton10_Click() {
+  try {
+    const result = _productService.updateProductSales();
+    const results = { sales: result };
+    const updateReport = _productService.generateUpdateReport(results);
+
+    MsgBox(updateReport, 64, "商品销售更新成功");
+  } catch (err) {
+    MsgBox(`商品销售更新失败：${err.message}`, 16, "错误");
+  }
+}
+
 // 一键更新
 function UserForm1_CommandButton5_Click() {
   try {

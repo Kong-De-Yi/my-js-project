@@ -1,8 +1,3 @@
-// ============================================================================
-// DataConfig.js - 数据配置中心
-// 功能：集中管理所有业务实体的字段定义，支持统一的主键配置
-// ============================================================================
-
 class DataConfig {
   static _instance = null;
 
@@ -200,6 +195,11 @@ class DataConfig {
             return undefined;
           },
         },
+        rejectAndReturnRate: {
+          title: "拒退率",
+          type: "number",
+          validators: [{ type: "range", params: { min: 0, max: 1 } }],
+        },
         profit: {
           title: "利润",
           type: "computed",
@@ -210,7 +210,7 @@ class DataConfig {
               obj.finalPrice,
               obj.userOperations1,
               obj.userOperations2,
-              obj.rejectAndReturnRateOfLast7Days,
+              obj.rejectAndReturnRate,
             );
           },
         },
@@ -224,7 +224,7 @@ class DataConfig {
               obj.finalPrice,
               obj.userOperations1,
               obj.userOperations2,
-              obj.rejectAndReturnRateOfLast7Days,
+              obj.rejectAndReturnRate,
             );
             return profit && obj.costPrice
               ? Number((profit / obj.costPrice).toFixed(5))
@@ -994,21 +994,23 @@ class DataConfig {
             return new Date();
           },
         },
-        updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
-        updateDateOfRegularProduct: {
-          title: "常态商品更新日期",
-          type: "string",
-        },
-        updateDateOfInventory: { title: "商品库存更新日期", type: "string" },
 
-        importDateOfProductPrice: { title: "商品价格导入日期", type: "string" },
         importDateOfRegularProduct: {
           title: "常态商品导入日期",
           type: "string",
         },
+        importDateOfProductPrice: { title: "商品价格导入日期", type: "string" },
         importDateOfComboProduct: { title: "组合商品导入日期", type: "string" },
         importDateOfInventory: { title: "商品库存导入日期", type: "string" },
         importDateOfProductSales: { title: "商品销售导入日期", type: "string" },
+
+        updateDateOfRegularProduct: {
+          title: "常态商品更新日期",
+          type: "string",
+        },
+        updateDateOfProductPrice: { title: "商品价格更新日期", type: "string" },
+        updateDateOfInventory: { title: "商品库存更新日期", type: "string" },
+        updateDateOfProductSales: { title: "商品销售更新日期", type: "string" },
       },
     };
 

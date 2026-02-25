@@ -824,7 +824,6 @@ class Repository {
   findProductPrices(query = {}) {
     return this.find("ProductPrice", query);
   }
-
   // 通过货号获取产品价格
   findPriceByItemNumber(itemNumber) {
     return this.find("ProductPrice", { itemNumber })[0];
@@ -834,7 +833,6 @@ class Repository {
   findRegularProductsByItemNumber(itemNumber) {
     return this.find("RegularProduct", { itemNumber });
   }
-
   // 获取所有（符合条件）的常态商品
   findRegularProducts(query = {}) {
     return this.find("RegularProduct", query);
@@ -860,21 +858,7 @@ class Repository {
   }
   // 获取指定年月的商品销售
   findSalesByYearMonth(yearMonth) {
-    return this.find("ProductSales", { yearMonth: yearMonth });
-  }
-  // 获取指定货号在某个年份的销售
-  findSalesByItemAndYear(itemNumber, year) {
-    return this.find("ProductSales", {
-      itemNumber: itemNumber,
-      salesYear: year,
-    });
-  }
-  // 获取指定货号在某个年月的销售
-  findSalesByItemAndYearMonth(itemNumber, yearMonth) {
-    return this.find("ProductSales", {
-      itemNumber: itemNumber,
-      yearMonth: yearMonth,
-    });
+    return this.find("ProductSales", { yearMonth });
   }
   // 获取最近N天的商品销售
   findSalesLastNDays(days) {
@@ -898,6 +882,30 @@ class Repository {
       sort: { field: "salesDate", order: "asc" },
     });
   }
+  // 获取指定货号在某个年份的销售
+  findSalesByItemAndYear(itemNumber, year) {
+    return this.find("ProductSales", {
+      itemNumber,
+      salesYear: year,
+    });
+  }
+  // 获取指定货号在某个年月的销售
+  findSalesByItemAndYearMonth(itemNumber, yearMonth) {
+    return this.find("ProductSales", {
+      itemNumber,
+      yearMonth,
+    });
+  }
+  // 获取指定货号最近N天的商品销售
+  findSalesLastNDays(itemNumber, days) {
+    return this.query("ProductSales", {
+      filter: {
+        itemNumber,
+        daysSinceSale: { $lte: days },
+      },
+      sort: { field: "salesDate", order: "asc" },
+    });
+  }
 
   // 获取系统记录
   getSystemRecord() {
@@ -911,6 +919,7 @@ class Repository {
       updateDateOfProductPrice: undefined,
       updateDateOfRegularProduct: undefined,
       updateDateOfInventory: undefined,
+      updateDateOfProductSales: undefined,
       importDateOfProductPrice: undefined,
       importDateOfRegularProduct: undefined,
       importDateOfComboProduct: undefined,

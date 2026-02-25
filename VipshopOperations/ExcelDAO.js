@@ -267,6 +267,11 @@ class ExcelDAO {
     return this._formatDate(value);
   }
 
+  // 对外提供日期转化服务
+  parseDate(dateStr) {
+    return this._parseDate(dateStr);
+  }
+
   _parseDate(dateStr) {
     if (!dateStr) return null;
 
