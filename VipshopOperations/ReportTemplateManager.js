@@ -1,8 +1,3 @@
-// ============================================================================
-// ReportTemplateManager.js - 报表模板管理器
-// 功能：读取报表配置工作表中的模板和颜色设置
-// ============================================================================
-
 class ReportTemplateManager {
   constructor(repository, excelDAO) {
     this._repository = repository;

@@ -1,184 +1,81 @@
-// ============================================================================
-// SalesStatisticsService.js - 销售统计服务（增强版）
-// 功能：提供各种销售统计指标的计算，支持按年/月/周/日维度
-// ============================================================================
-
 class SalesStatisticsService {
-  /**
-   * 构造函数
-   * @param {Object} repository - 数据仓库实例
-   */
   constructor(repository) {
     this._repository = repository;
     this._salesCache = null;
     this._currentDate = new Date();
   }
 
-  /**
-   * 刷新销售数据缓存
-   * @private
-   */
+  // 刷新销售数据缓存
   _refreshSalesCache() {
     this._salesCache = this._repository.findAll("ProductSales");
   }
 
-  /**
-   * 按货号分组销售数据
-   * @returns {Map} 货号到销售数据数组的映射
-   * @private
-   */
-  _groupSalesByItemNumber() {
-    if (!this._salesCache) {
-      this._refreshSalesCache();
-    }
-
-    const grouped = new Map();
-
-    this._salesCache.forEach((sale) => {
-      if (!sale.itemNumber) return;
-
-      if (!grouped.has(sale.itemNumber)) {
-        grouped.set(sale.itemNumber, []);
-      }
-      grouped.get(sale.itemNumber).push(sale);
-    });
-
-    return grouped;
-  }
-
-  /**
-   * 按货号和日期范围过滤销售数据
-   * @param {Array} sales - 销售数据数组
-   * @param {Date} startDate - 开始日期
-   * @param {Date} endDate - 结束日期
-   * @returns {Array} 过滤后的销售数据
-   * @private
-   */
-  _filterSalesByDateRange(sales, startDate, endDate) {
-    const start = startDate.getTime();
-    const end = endDate.getTime();
-
-    return sales.filter((sale) => {
-      const saleDate = _validationEngine.parseDate(sale.salesDate);
-      if (!saleDate) return false;
-      const saleTime = saleDate.getTime();
-      return saleTime >= start && saleTime <= end;
-    });
-  }
-
-  /**
-   * 计算销售数据的总和
-   * @param {Array} sales - 销售数据数组
-   * @param {string} field - 字段名
-   * @returns {number} 总和
-   * @private
-   */
+  // 计算销售数据字段filed的总和
   _sumField(sales, field) {
     return sales.reduce((sum, sale) => {
-      return sum + (Number(sale[field]) || 0);
+      return sum + sale[field];
     }, 0);
   }
 
-  /**
-   * 获取指定货号在指定年份的全年销量（优化版-使用索引）
-   * @param {string} itemNumber - 货号
-   * @param {number} year - 年份
-   * @returns {number} 年销量
-   */
+  // 获取指定货号在指定年份的全年销量
   getYearTotalSales(itemNumber, year) {
     if (!itemNumber) return 0;
 
-    // 使用索引查询
-    const sales = this._repository.find("ProductSales", {
-      itemNumber: itemNumber,
-      salesYear: year,
-    });
+    // 查询销售数据
+    const sales = this._repository.findSalesByItemAndYear(itemNumber, year);
 
     return this._sumField(sales, "salesQuantity");
   }
 
-  /**
-   * 获取指定货号在指定年份和月份的销量（优化版-使用索引）
-   * @param {string} itemNumber - 货号
-   * @param {number} year - 年份
-   * @param {number} month - 月份（1-12）
-   * @returns {number} 月销量
-   */
+  // 获取指定货号在指定年份和月份的销量
   getMonthSales(itemNumber, year, month) {
     if (!itemNumber) return 0;
 
-    // 使用索引查询
-    const sales = this._repository.find("ProductSales", {
-      itemNumber: itemNumber,
-      salesYear: year,
-      salesMonth: month,
-    });
+    // 查询销售数据
+    const sales = this._repository.findSalesByItemAndYearMonth(
+      itemNumber,
+      year,
+      month,
+    );
 
     return this._sumField(sales, "salesQuantity");
   }
 
-  /**
-   * 获取指定货号在指定年份和周数的销量（优化版-使用索引）
-   * @param {string} itemNumber - 货号
-   * @param {number} year - 年份
-   * @param {number} week - 周数（1-53）
-   * @returns {number} 周销量
-   */
+  // 获取指定货号在指定年份和周数的销量
   getWeekSales(itemNumber, year, week) {
     if (!itemNumber) return 0;
 
-    // 使用索引查询
-    const sales = this._repository.find("ProductSales", {
-      itemNumber: itemNumber,
-      salesYear: year,
-      salesWeekOfYear: week,
-    });
+    // 查询销售数据
+    const sales = this._repository.findSalesByItemAndYearWeek(
+      itemNumber,
+      year,
+      week,
+    );
 
     return this._sumField(sales, "salesQuantity");
   }
 
-  /**
-   * 获取指定货号在指定日期的销量（优化版-使用主键）
-   * @param {string} itemNumber - 货号
-   * @param {Date} date - 日期
-   * @returns {number} 日销量
-   */
+  // 获取指定货号在指定日期的销量
   getDaySales(itemNumber, date) {
     if (!itemNumber) return 0;
 
-    const dateStr = _validationEngine.formatDate(date);
+    // 查询销售数据
+    const sale = this._repository.findSalesByItemAndDate(itemNumber, date);
 
-    const sale = this._repository.findOne("ProductSales", {
-      itemNumber: itemNumber,
-      salesDate: dateStr,
-    });
-
-    return sale ? Number(sale.salesQuantity) || 0 : 0;
+    return sale ? sale.salesQuantity : 0;
   }
 
-  /**
-   * 获取近N天的指定字段总和（优化版-使用daysSinceSale索引）
-   * @param {string} itemNumber - 货号
-   * @param {number} days - 天数
-   * @param {string} field - 字段名
-   * @returns {number} 总和
-   */
+  // 获取近N天的指定字段总和
   getLastNDaysSum(itemNumber, days, field) {
     if (!itemNumber) return 0;
 
-    const sales = this._repository.query("ProductSales", {
-      filter: { itemNumber: itemNumber, daysSinceSale: { $lte: days } },
-    });
+    // 查询销售数据
+    const sales = this._repository.findSalesLastNDays(itemNumber, days);
 
     return this._sumField(sales, field);
   }
 
-  /**
-   * 获取近N天的每日销量
-   * @param {string} itemNumber - 货号
-   * @param {number} days - 天数
-   * @returns {Array} 每日销量数组
-   */
+  // 获取近N天的每日销量
   getLastNDaysDailySales(itemNumber, days) {
     const result = [];
     const today = new Date();
@@ -187,62 +84,44 @@ class SalesStatisticsService {
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const sales = this.getDaySales(itemNumber, date);
+      const sale = this.getDaySales(itemNumber, date);
 
       result.push({
-        date: date,
-        dateStr: _validationEngine.formatDate(date),
-        sales: sales,
+        date,
+        dateStr: _excelDAO.formatDate(date),
+        sale,
       });
     }
 
     return result;
   }
 
-  /**
-   * 获取当前日期
-   * @returns {Date} 当前日期
-   */
+  // 获取当前日期
   getCurrentDate() {
     return this._currentDate;
   }
 
-  /**
-   * 获取当前年份
-   * @returns {number} 当前年份
-   */
+  // 获取当前年份
   getCurrentYear() {
     return this._currentDate.getFullYear();
   }
 
-  /**
-   * 获取当前月份
-   * @returns {number} 当前月份（1-12）
-   */
+  // 获取当前月份
   getCurrentMonth() {
     return this._currentDate.getMonth() + 1;
   }
 
-  /**
-   * 获取当前日期
-   * @returns {number} 当前日期
-   */
+  // 获取当前日期
   getCurrentDay() {
     return this._currentDate.getDate();
   }
 
-  /**
-   * 获取当前周数
-   * @returns {number} 当前周数
-   */
+  // 获取当前周数
   getCurrentWeek() {
     return this._getISOWeekNumber(this._currentDate);
   }
 
-  /**
-   * 获取前年、去年、今年的年份
-   * @returns {Object} 年份对象
-   */
+  // 获取前年、去年、今年的年份
   getYearRange() {
     const currentYear = this.getCurrentYear();
     return {
@@ -252,11 +131,7 @@ class SalesStatisticsService {
     };
   }
 
-  /**
-   * 获取指定年份的月份范围
-   * @param {number} year - 年份
-   * @returns {Array} 月份数组
-   */
+  // 获取指定年份的月份范围
   getMonthsOfYear(year) {
     const currentYear = this.getCurrentYear();
     const currentMonth = this.getCurrentMonth();
@@ -268,11 +143,7 @@ class SalesStatisticsService {
     }
   }
 
-  /**
-   * 获取指定年份的周数范围
-   * @param {number} year - 年份
-   * @returns {Array} 周数数组
-   */
+  // 获取指定年份的周数范围
   getWeeksOfYear(year) {
     const currentYear = this.getCurrentYear();
     const currentWeek = this.getCurrentWeek();
@@ -286,11 +157,7 @@ class SalesStatisticsService {
     }
   }
 
-  /**
-   * 获取指定年份的日期范围（按月分组）
-   * @param {number} year - 年份
-   * @returns {Array} 日期信息数组
-   */
+  // 获取指定年份的日期范围（按月分组）
   getDaysOfYear(year) {
     const currentYear = this.getCurrentYear();
     const currentMonth = this.getCurrentMonth();
@@ -319,11 +186,7 @@ class SalesStatisticsService {
     return result;
   }
 
-  /**
-   * 获取近N天的日期数组
-   * @param {number} days - 天数
-   * @returns {Array} 日期数组
-   */
+  // 获取近N天的日期数组
   getRecentDays(days) {
     const result = [];
     const today = new Date(this._currentDate);
@@ -338,12 +201,7 @@ class SalesStatisticsService {
     return result;
   }
 
-  /**
-   * 获取ISO周数
-   * @param {Date} date - 日期
-   * @returns {number} 周数（1-53）
-   * @private
-   */
+  // 获取ISO周数
   _getISOWeekNumber(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -355,30 +213,7 @@ class SalesStatisticsService {
     );
   }
 
-  /**
-   * 根据ISO周数获取该周的第一天（周一）
-   * @param {number} year - 年份
-   * @param {number} week - 周数（1-53）
-   * @returns {Date} 该周的第一天
-   * @private
-   */
-  _getDateOfISOWeek(year, week) {
-    const simple = new Date(year, 0, 1 + (week - 1) * 7);
-    const dow = simple.getDay();
-    const ISOweekStart = simple;
-    if (dow <= 4) {
-      ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-    } else {
-      ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-    }
-    return ISOweekStart;
-  }
-
-  /**
-   * 格式化日期为显示格式
-   * @param {Date} date - 日期
-   * @returns {string} 格式化后的日期
-   */
+  // 格式化日期为显示格式
   formatDisplayDate(date) {
     const month = date.getMonth() + 1;
     const day = date.getDate();

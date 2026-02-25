@@ -875,37 +875,37 @@ class DataConfig {
         exposureUV: {
           title: "曝光UV",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         productDetailsUV: {
           title: "商详UV",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         addToCartUV: {
           title: "加购UV(加购用户数)",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         customerCount: {
           title: "客户数",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         rejectAndReturnCount: {
           title: "拒退件数",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         salesQuantity: {
           title: "销售量",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         salesAmount: {
           title: "销售额",
           type: "number",
-          validators: [{ type: "required" }],
+          validators: [{ type: "required" }, { type: "nonNegative" }],
         },
         firstListingTime: {
           title: "首次上架时间",
@@ -990,7 +990,7 @@ class DataConfig {
         recordDate: {
           title: "记录日期",
           type: "computed",
-          compute: (obj) => {
+          compute: () => {
             return new Date();
           },
         },

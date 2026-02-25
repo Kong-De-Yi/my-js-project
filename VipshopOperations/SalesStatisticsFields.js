@@ -1,22 +1,10 @@
-// ============================================================================
-// SalesStatisticsFields.js - 销售统计字段定义（混合模式）
-// 功能：近7天指标汇总，其他按时间维度展开
-// ============================================================================
-
 class SalesStatisticsFields {
-  /**
-   * 构造函数
-   * @param {Object} salesStatisticsService - 销售统计服务实例
-   */
   constructor(salesStatisticsService) {
     this._service = salesStatisticsService;
     this._years = this._service.getYearRange();
   }
 
-  /**
-   * 获取所有可用的统计字段
-   * @returns {Array} 字段配置数组
-   */
+  // 获取所有可用的统计字段
   getAllFields() {
     return [
       // ========== 年销量（3个汇总字段）==========
@@ -333,11 +321,7 @@ class SalesStatisticsFields {
     ];
   }
 
-  /**
-   * 展开字段配置
-   * @param {Object} field - 字段配置
-   * @returns {Array} 展开后的字段数组
-   */
+  // 展开字段配置
   expandField(field) {
     if (field.type !== "expandable" || !field.expandConfig) {
       return [field];
@@ -366,10 +350,7 @@ class SalesStatisticsFields {
     return expandedFields;
   }
 
-  /**
-   * 展开月份字段
-   * @private
-   */
+  // 展开月份字段
   _expandMonthField(config, baseField) {
     const fields = [];
     const months = this._service.getMonthsOfYear(config.year);
@@ -398,10 +379,7 @@ class SalesStatisticsFields {
     return fields;
   }
 
-  /**
-   * 展开周数字段
-   * @private
-   */
+  // 展开周数字段
   _expandWeekField(config, baseField) {
     const fields = [];
     const weeks = this._service.getWeeksOfYear(config.year);
@@ -430,10 +408,7 @@ class SalesStatisticsFields {
     return fields;
   }
 
-  /**
-   * 展开日数字段
-   * @private
-   */
+  // 展开日数字段
   _expandDayField(config, baseField) {
     const fields = [];
     const months = this._service.getDaysOfYear(config.year);
@@ -463,15 +438,12 @@ class SalesStatisticsFields {
     return fields;
   }
 
-  /**
-   * 展开近N天字段
-   * @private
-   */
+  // 展开近N天字段
   _expandRecentField(config, baseField) {
     const fields = [];
     const dates = this._service.getRecentDays(config.days);
 
-    dates.forEach((date, index) => {
+    dates.forEach((date) => {
       const month = date.getMonth() + 1;
       const day = date.getDate();
       const monthStr = String(month).padStart(2, "0");

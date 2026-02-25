@@ -1,14 +1,4 @@
-// ============================================================================
-// ReportEngine.js - 报表引擎（支持字段展开）
-// 功能：根据模板配置生成报表，支持字段自动展开
-// ============================================================================
-
 class ReportEngine {
-  /**
-   * 构造函数
-   * @param {Object} repository - 数据仓库实例
-   * @param {Object} excelDAO - Excel数据访问对象
-   */
   constructor(repository, excelDAO) {
     this._repository = repository;
     this._excelDAO = excelDAO;
@@ -21,15 +11,11 @@ class ReportEngine {
       this._salesStatisticsService,
     );
 
-    // 缓存所有统计字段配置
+    // 缓存所有销售统计字段配置
     this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
   }
 
-  /**
-   * 构建统计字段映射（包含展开逻辑）
-   * @returns {Map} 字段名到字段配置的映射
-   * @private
-   */
+  // 构建销售统计字段映射（包含展开逻辑）
   _buildStatisticsFieldsMap() {
     const map = new Map();
     const baseFields = this._salesStatisticsFields.getAllFields();
@@ -49,10 +35,7 @@ class ReportEngine {
     return map;
   }
 
-  /**
-   * 获取所有可用的字段（用于模板配置）
-   * @returns {Array} 字段配置数组
-   */
+  // 获取所有可用的字段（用于模板配置）
   getAvailableFields() {
     const baseFields = this._salesStatisticsFields.getAllFields();
 
@@ -65,43 +48,27 @@ class ReportEngine {
     }));
   }
 
-  /**
-   * 初始化模板
-   * @returns {Map} 初始化后的模板列表
-   */
+  // 初始化模板
   initializeTemplates() {
     return this._templateManager.initializeDefaultTemplates();
   }
 
-  /**
-   * 获取模板列表
-   * @returns {Array} 模板名称数组
-   */
+  // 获取模板列表
   getTemplateList() {
     return this._templateManager.getTemplateList();
   }
 
-  /**
-   * 设置当前模板
-   * @param {string} templateName - 模板名称
-   * @returns {boolean} 是否设置成功
-   */
+  // 设置当前模板
   setCurrentTemplate(templateName) {
     return this._templateManager.setCurrentTemplate(templateName);
   }
 
-  /**
-   * 获取当前模板
-   * @returns {string|null} 当前模板名称
-   */
+  // 获取当前模板
   getCurrentTemplate() {
     return this._templateManager.getCurrentTemplate();
   }
 
-  /**
-   * 刷新模板
-   * @returns {Map} 刷新后的模板列表
-   */
+  // 刷新模板
   refreshTemplates() {
     this._templateManager.refresh();
     // 重新构建字段映射（因为时间变化）

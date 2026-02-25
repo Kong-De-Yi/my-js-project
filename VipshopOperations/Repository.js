@@ -338,12 +338,14 @@ class Repository {
             if (condition.$in && Array.isArray(condition.$in)) {
               return condition.$in.includes(value);
             }
+
             if (condition.$between && condition.$between.length === 2) {
               const num = Number(value);
               return (
                 num >= condition.$between[0] && num <= condition.$between[1]
               );
             }
+
             if (condition.$gt !== undefined)
               return Number(value) > condition.$gt;
             if (condition.$gte !== undefined)
@@ -785,7 +787,7 @@ class Repository {
   }
   // 通过货号获取产品
   findProductByItemNumber(itemNumber) {
-    return this.find("Product", { itemNumber });
+    return this.find("Product", { itemNumber })[0];
   }
   // 通过款号获取产品
   findProductsByStyle(styleNumber) {
@@ -875,9 +877,11 @@ class Repository {
     const end = this._excelDAO.parseDate(endDate)?.getTime() || Infinity;
 
     return this.query("ProductSales", {
-      filter: (item) => {
-        const date = this._excelDAO.parseDate(item.salesDate)?.getTime() || 0;
-        return date >= start && date <= end;
+      filter: {
+        salesDate: (value) => {
+          const date = this._excelDAO.parseDate(value)?.getTime() || 0;
+          return date >= start && date <= end;
+        },
       },
       sort: { field: "salesDate", order: "asc" },
     });
@@ -890,13 +894,32 @@ class Repository {
     });
   }
   // 获取指定货号在某个年月的销售
-  findSalesByItemAndYearMonth(itemNumber, yearMonth) {
+  findSalesByItemAndYearMonth(itemNumber, year, month) {
+    const monthStr = String(month).padStart(2, "0");
+    const yearMonth = `${year}-${monthStr}`;
+
     return this.find("ProductSales", {
       itemNumber,
       yearMonth,
     });
   }
-  // 获取指定货号最近N天的商品销售
+  // 获取指定货号在某个年周的销售
+  findSalesByItemAndYearWeek(itemNumber, year, week) {
+    const weekStr = String(week).padStart(2, "0");
+    const yearWeek = `${year}-${weekStr}`;
+
+    return this.find("ProductSales", {
+      itemNumber,
+      yearWeek,
+    });
+  }
+  // 获取指定货号在指定日期的销售
+  findSalesByItemAndDate(itemNumber, date) {
+    const dateStr = this._excelDAO.formatDate(date);
+
+    return this.find("ProductSales", { itemNumber, salesDate: dateStr })[0];
+  }
+  // 获取指定货号最近N天内的商品销售
   findSalesLastNDays(itemNumber, days) {
     return this.query("ProductSales", {
       filter: {
@@ -914,18 +937,12 @@ class Repository {
       return records[0];
     }
 
-    const newRecord = {
-      recordDate: new Date(),
-      updateDateOfProductPrice: undefined,
-      updateDateOfRegularProduct: undefined,
-      updateDateOfInventory: undefined,
-      updateDateOfProductSales: undefined,
-      importDateOfProductPrice: undefined,
-      importDateOfRegularProduct: undefined,
-      importDateOfComboProduct: undefined,
-      importDateOfInventory: undefined,
-      importDateOfProductSales: undefined,
-    };
+    const entityConfig = this._config.get("SystemRecord");
+
+    const fields = entityConfig.fields;
+    const newRecord = {};
+
+    Object.keys(fields).forEach((f) => (newRecord[f] = undefined));
 
     this._cache.set("SystemRecord", [newRecord]);
     return newRecord;
