@@ -120,7 +120,7 @@ function UserForm1_CommandButton5_Click() {
     const results = _productService.updateAll();
     const updateReport = _productService.generateUpdateReport(results);
 
-    MsgBox(updateReport, 64, "一键更新成功");
+    MsgBox(updateReport, 64, "一键更新");
   } catch (err) {
     MsgBox(`一键更新失败：${err.message}`, 16, "错误");
   }
