@@ -220,8 +220,7 @@ class ProductService {
   _applySalesToProduct(product, lastNDays) {
     let changed = false;
 
-    const oldRejectAndReturnRate = product.rejectAndReturnRate;
-    const oldFirstListingTime = product.firstListingTime;
+    const oldRARR = product.rejectAndReturnRate;
 
     // 1.获取最近N天的销售数据
     const salesLastNDays = this._repository.findSalesLastNDays(
@@ -244,14 +243,15 @@ class ProductService {
       ? rr.rejectAndReturnCount / rr.salesQuantity
       : undefined;
 
-    // 更新首次上架时间
-    product.firstListingTime = salesLastNDays[0].firstListingTime;
+    if (product.rejectAndReturnRate !== oldRARR) changed = true;
 
-    if (
-      product.rejectAndReturnRate !== oldRejectAndReturnRate ||
-      product.firstListingTime !== oldFirstListingTime
-    )
+    // 更新首次上架时间
+    const flt = salesLastNDays[0].firstListingTime;
+    if (!product.firstListingTime && flt) {
+      product.firstListingTime = flt;
+
       changed = true;
+    }
 
     return changed;
   }
@@ -423,7 +423,7 @@ class ProductService {
 
     // 1.检查组合装和商品库存是否更新
     if (this._checkDataExpired("ComboProduct")) {
-      throw new Error("【组合商品】今日尚未导入，请先导入！");
+      throw new Error("【商品库存】需要最新的组合商品，请先导入！");
     }
     if (this._checkDataExpired("Inventory")) {
       throw new Error("【商品库存】今日尚未导入，请先导入！");
@@ -432,14 +432,14 @@ class ProductService {
     // 2.计算库存
     products.forEach((product) => {
       const before = product.totalInventory;
-      // 1.重置库存
+      // 重置库存
       this._resetInventoryFields(product);
-      // 2.计算成品库存
-      const fgTotalInventory = this._calculateFinishedGoods(product);
-      // 3.计算通货库存
-      const ggTotalInventory = this._calculateGeneralGoods(product);
+      // 计算成品库存
+      const finishedGoodsTI = this._calculateFinishedGoods(product);
+      // 计算通货库存
+      const GeneralGoodsTI = this._calculateGeneralGoods(product);
 
-      const after = fgTotalInventory + ggTotalInventory;
+      const after = finishedGoodsTI + GeneralGoodsTI;
 
       if (before !== after) result.updated++;
       if (after === 0) result.zeroInventory++;
@@ -577,8 +577,8 @@ class ProductService {
 
     if (results.price) {
       report += `\n【商品价格】\n`;
-      report += `  更新价格: ${results.price.updated}\n`;
-      report += `  无价格: ${results.price.skipped}\n`;
+      report += `  更新: ${results.price.updated}\n`;
+      report += `  跳过: ${results.price.skipped}\n`;
     }
 
     if (results.inventory) {

@@ -80,7 +80,9 @@ class ExcelDAO {
     // 获取需要持久化的字段映射
     const keyToTitle = {};
     Object.entries(fields).forEach(([key, config]) => {
-      keyToTitle[key] = config.title || key;
+      if (config.type !== "computed") {
+        keyToTitle[key] = config.title || key;
+      }
     });
 
     // 读取工作表
@@ -144,6 +146,13 @@ class ExcelDAO {
             break;
           default:
             obj[key] = this._toString(rawValue);
+        }
+      });
+
+      //  添加计算字段
+      Object.entries(fields).forEach(([key, config]) => {
+        if (config.type === "computed") {
+          obj[key] = undefined;
         }
       });
 
