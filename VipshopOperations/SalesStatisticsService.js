@@ -1,8 +1,26 @@
 class SalesStatisticsService {
+  static _instance = null;
+
   constructor(repository) {
-    this._repository = repository;
+    if (SalesStatisticsService._instance) {
+      return SalesStatisticsService._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
+    this._converter = Converter.getInstance();
+
     this._salesCache = null;
     this._currentDate = new Date();
+
+    SalesStatisticsService._instance = this;
+  }
+
+  // 单例模式
+  static getInstance(repository) {
+    if (!SalesStatisticsService._instance) {
+      SalesStatisticsService._instance = new SalesStatisticsService(repository);
+    }
+    return SalesStatisticsService._instance;
   }
 
   // 刷新销售数据缓存
@@ -88,7 +106,7 @@ class SalesStatisticsService {
 
       result.push({
         date,
-        dateStr: _converter.toDateStr(date),
+        dateStr: this._converter.toDateStr(date),
         sale,
       });
     }

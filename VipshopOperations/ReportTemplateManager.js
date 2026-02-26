@@ -1,10 +1,30 @@
 class ReportTemplateManager {
+  static _instance = null;
+
   constructor(repository, excelDAO) {
-    this._repository = repository;
-    this._excelDAO = excelDAO;
+    if (ReportTemplateManager._instance) {
+      return ReportTemplateManager._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
+    this._excelDAO = excelDAO || ExcelDAO.getInstance();
+
     this._config = DataConfig.getInstance();
     this._templates = null;
     this._currentTemplate = null;
+
+    ReportTemplateManager._instance = this;
+  }
+
+  // 单例模式
+  static getInstance(repository, excelDAO) {
+    if (!ReportTemplateManager._instance) {
+      ReportTemplateManager._instance = new ReportTemplateManager(
+        repository,
+        excelDAO,
+      );
+    }
+    return ReportTemplateManager._instance;
   }
 
   initializeDefaultTemplates() {
@@ -155,69 +175,8 @@ class ReportTemplateManager {
     this._repository.save("ReportTemplate", allTemplates);
   }
 
-  // 从报表配置工作表载入模板字段配置，返回Map(模板名称——>模板字段对象数组)
-  loadTemplates() {
-    if (this._templates) {
-      return this._templates;
-    }
-
-    try {
-      // 1.获取工作表中的模板字段对象
-      const templateItems = this._repository.findAll("ReportTemplate");
-      const wb = this._excelDAO.getWorkbook();
-      const sheet = wb.Sheets("报表配置");
-
-      // 2.工作表没有数据则返回空Map
-      if (!templateItems || templateItems.length === 0) {
-        this._templates = new Map();
-        return this._templates;
-      }
-
-      // 3.获取颜色Map(模板名称|字段—>颜色)
-      const rowColors = this._readRowColors(sheet, templateItems);
-      const templates = new Map();
-
-      // 4.遍历所有的模板字段对象，添加颜色属性后push到数组
-      templateItems.forEach((item) => {
-        if (!item.templateName || !item.fieldName) return;
-
-        if (!templates.has(item.templateName)) {
-          templates.set(item.templateName, []);
-        }
-
-        const key = `${item.templateName}|${item.fieldName}`;
-        const color = rowColors.get(key) || null;
-
-        templates.get(item.templateName).push({
-          field: item.fieldName,
-          title: item.columnTitle || item.fieldName,
-          width: item.columnWidth || 10,
-          visible: item.isVisible === "是",
-          order: item.displayOrder || 999,
-          format: item.numberFormat || "",
-          description: item.description || "",
-          color: color,
-        });
-      });
-
-      templates.forEach((columns, name) => {
-        templates.set(
-          name,
-          columns.sort((a, b) => (a.order || 999) - (b.order || 999)),
-        );
-      });
-
-      this._templates = templates;
-      return templates;
-    } catch (e) {
-      MsgBox("报表初始化失败" + e.message);
-      this._templates = new Map();
-      return this._templates;
-    }
-  }
-
   // 返回报表配置的模板项目标题颜色Map(模板名称|字段名称——>颜色)
-  _readRowColors(sheet, templateItems) {
+  _readRowColors(sheet) {
     const colorMap = new Map();
 
     try {
@@ -274,45 +233,7 @@ class ReportTemplateManager {
     return colorMap;
   }
 
-  //  返回所有的报表模板名称数组
-  getTemplateList() {
-    const templates = this.loadTemplates();
-    return Array.from(templates.keys()).sort();
-  }
-
-  // 获取指定的报表模板的报表项目，返回数组
-  getTemplate(templateName) {
-    const templates = this.loadTemplates();
-    return templates.get(templateName) || [];
-  }
-
-  // 设置当前的报表模板
-  setCurrentTemplate(templateName) {
-    if (templateName && this.loadTemplates().has(templateName)) {
-      this._currentTemplate = templateName;
-      return true;
-    }
-    return false;
-  }
-
-  // 获取当前的报表模板
-  getCurrentTemplate() {
-    return this._currentTemplate;
-  }
-
-  getCurrentColumns() {
-    if (!this._currentTemplate) {
-      return this._getDefaultColumns();
-    }
-
-    const columns = this.getTemplate(this._currentTemplate);
-    if (columns.length === 0) {
-      return this._getDefaultColumns();
-    }
-
-    return columns;
-  }
-
+  // 获取默认的模板项目
   _getDefaultColumns() {
     return [
       {
@@ -398,6 +319,110 @@ class ReportTemplateManager {
     ];
   }
 
+  // 从报表配置工作表载入模板字段配置，返回Map(模板名称——>模板字段对象数组)
+  loadTemplates() {
+    if (this._templates) {
+      return this._templates;
+    }
+
+    try {
+      // 1.获取工作表中的模板字段对象
+      const templateItems = this._repository.findAll("ReportTemplate");
+      const wb = this._excelDAO.getWorkbook();
+      const sheet = wb.Sheets("报表配置");
+
+      // 2.工作表没有数据则返回空Map
+      if (!templateItems || templateItems.length === 0) {
+        this._templates = new Map();
+        return this._templates;
+      }
+
+      // 3.获取颜色Map(模板名称|字段—>颜色)
+      const rowColors = this._readRowColors(sheet);
+      const templates = new Map();
+
+      // 4.遍历所有的模板字段对象，添加颜色属性后push到数组
+      templateItems.forEach((item) => {
+        if (!item.templateName || !item.fieldName) return;
+
+        if (!templates.has(item.templateName)) {
+          templates.set(item.templateName, []);
+        }
+
+        // 获取字段的标题颜色
+        const key = `${item.templateName}|${item.fieldName}`;
+        const color = rowColors.get(key) || null;
+
+        templates.get(item.templateName).push({
+          field: item.fieldName,
+          title: item.columnTitle || item.fieldName,
+          width: item.columnWidth || 10,
+          visible: item.isVisible === "是",
+          order: item.displayOrder || 999,
+          format: item.numberFormat || "",
+          description: item.description || "",
+          color: color,
+        });
+      });
+
+      // 按照显式顺序排序
+      templates.forEach((columns, name) => {
+        templates.set(
+          name,
+          columns.sort((a, b) => (a.order || 999) - (b.order || 999)),
+        );
+      });
+
+      this._templates = templates;
+      return templates;
+    } catch (e) {
+      MsgBox("报表初始化失败" + e.message);
+      this._templates = new Map();
+      return this._templates;
+    }
+  }
+
+  //  返回所有的报表模板名称数组
+  getTemplateList() {
+    const templates = this.loadTemplates();
+    return Array.from(templates.keys()).sort();
+  }
+
+  // 获取指定的报表模板的报表项目，返回数组
+  getTemplate(templateName) {
+    const templates = this.loadTemplates();
+    return templates.get(templateName) || [];
+  }
+
+  // 设置当前的报表模板
+  setCurrentTemplate(templateName) {
+    if (templateName && this.loadTemplates().has(templateName)) {
+      this._currentTemplate = templateName;
+      return true;
+    }
+    return false;
+  }
+
+  // 获取当前的报表模板
+  getCurrentTemplate() {
+    return this._currentTemplate;
+  }
+
+  // 获取当前模板的模板项目
+  getCurrentColumns() {
+    if (!this._currentTemplate) {
+      return this._getDefaultColumns();
+    }
+
+    const columns = this.getTemplate(this._currentTemplate);
+    if (columns.length === 0) {
+      return this._getDefaultColumns();
+    }
+
+    return columns;
+  }
+
+  // 刷新模板数据
   refresh() {
     this._templates = null;
     return this.loadTemplates();

@@ -9,6 +9,7 @@ class Repository {
     this._excelDAO = excelDAO || ExcelDAO.getInstance(); // 可以传入，也可以自动获取;
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
+    this._converter = Converter.getInstance();
 
     this._cache = new Map();
     this._indexes = new Map();
@@ -894,7 +895,7 @@ class Repository {
   }
   // 获取指定货号在指定日期的销售
   findSalesByItemAndDate(itemNumber, date) {
-    const dateStr = _converter.toDateStr(date);
+    const dateStr = this._converter.toDateStr(date);
 
     return this.find("ProductSales", { itemNumber, salesDate: dateStr })[0];
   }

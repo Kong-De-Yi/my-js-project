@@ -1,18 +1,39 @@
 class ReportEngine {
+  static _instance = null;
+
   constructor(repository, excelDAO) {
-    this._repository = repository;
-    this._excelDAO = excelDAO;
+    if (ReportEngine._instance) {
+      return ReportEngine._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
+    this._excelDAO = excelDAO || ExcelDAO.getInstance();
     this._config = DataConfig.getInstance();
-    this._templateManager = new ReportTemplateManager(repository, excelDAO);
+    this._validationEngine = ValidationEngine.getInstance();
+
+    this._templateManager = new ReportTemplateManager(
+      this._repository,
+      this._excelDAO,
+    );
 
     // 初始化销售统计服务
-    this._salesStatisticsService = new SalesStatisticsService(repository);
+    this._salesStatisticsService = new SalesStatisticsService(this._repository);
     this._salesStatisticsFields = new SalesStatisticsFields(
       this._salesStatisticsService,
     );
 
     // 缓存所有销售统计字段配置
     this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
+
+    ReportEngine._instance = this;
+  }
+
+  // 单例模式
+  static getInstance(repository, excelDAO) {
+    if (!ReportEngine._instance) {
+      ReportEngine._instance = new ReportEngine(repository, excelDAO);
+    }
+    return ReportEngine._instance;
   }
 
   // 构建销售统计字段映射（包含展开逻辑）
@@ -76,11 +97,7 @@ class ReportEngine {
     return this._templateManager.loadTemplates();
   }
 
-  /**
-   * 从UI获取筛选条件
-   * @returns {Object} 查询条件对象
-   * @private
-   */
+  // 从UI获取筛选条件
   _buildQueryFromUI() {
     const query = {};
 
@@ -90,21 +107,67 @@ class ReportEngine {
     if (UserForm1.CheckBox3?.Value) seasons.push("夏");
     if (UserForm1.CheckBox4?.Value) seasons.push("冬");
     if (UserForm1.CheckBox5?.Value) seasons.push("四季");
-    if (seasons.length > 0) query.mainSalesSeason = seasons;
+    if (seasons.length > 0)
+      Object.assign(query, { mainSalesSeason: { $in: seasons } });
 
     // 适用性别
     const genders = [];
     if (UserForm1.CheckBox14?.Value) genders.push("男童");
     if (UserForm1.CheckBox15?.Value) genders.push("女童");
     if (UserForm1.CheckBox16?.Value) genders.push("中性");
-    if (genders.length > 0) query.applicableGender = genders;
+    if (genders.length > 0)
+      Object.assign(query, { applicableGender: { $in: genders } });
 
     // 商品状态
     const statuses = [];
     if (UserForm1.CheckBox17?.Value) statuses.push("商品上线");
     if (UserForm1.CheckBox18?.Value) statuses.push("部分上线");
     if (UserForm1.CheckBox19?.Value) statuses.push("商品下线");
-    if (statuses.length > 0) query.itemStatus = statuses;
+    if (statuses.length > 0)
+      Object.assign(query, { itemStatus: { $in: statuses } });
+
+    // 下线原因
+    const offlineReasons = [];
+    if (UserForm1.CheckBox54?.Value)
+      offlineReasons.push(
+        "新品下架",
+        "过季下架",
+        "更换吊牌",
+        "转移品牌",
+        "清仓淘汰",
+      );
+    if (UserForm1.CheckBox55?.Value)
+      offlineReasons.push("内网撞款", "资质问题", "内在质检");
+    if (UserForm1.CheckBox56?.Value) offlineReasons.push(undefined);
+    if (offlineReasons.length > 0)
+      Object.assign(query, { offlineReason: { $in: offlineReasons } });
+
+    // 售龄
+    const startAge = UserForm1.TextEdit31?.Value;
+    const endAge = UserForm1.TextEdit32?.Value;
+    const validatorConfig = { type: nonNegative };
+    const startAgeVR = true;
+    const endAgeVR = true;
+
+    if (startAge) {
+      startAgeVR = this._validationEngine.validateValue(
+        startAge,
+        validatorConfig,
+        "售龄",
+      ).valid;
+    }
+
+    if (endAgeVR) {
+      endAgeVR = this._validationEngine.validateValue(
+        endAge,
+        validatorConfig,
+        "售龄",
+      ).valid;
+    }
+
+    if (!startAgeVR || !endAgeVR) {
+      throw new Error("售龄必须是有效的数字!");
+    }
 
     // 营销定位
     const positions = [];
@@ -172,13 +235,10 @@ class ReportEngine {
     return query;
   }
 
-  /**
-   * 应用筛选条件
-   * @param {Array} products - 商品数据
-   * @param {Object} query - 查询条件
-   * @returns {Array} 筛选后的数据
-   * @private
-   */
+  // 从UI获取排序条件
+  _bulidSortFromUI() {}
+
+  // 应用筛选条件
   _applyQuery(products, query) {
     if (Object.keys(query).length === 0) {
       return products;
@@ -217,14 +277,7 @@ class ReportEngine {
     });
   }
 
-  /**
-   * 应用排序
-   * @param {Array} products - 商品数据
-   * @param {string} sortField - 排序字段
-   * @param {boolean} sortAscending - 是否升序
-   * @returns {Array} 排序后的数据
-   * @private
-   */
+  // 应用排序
   _applySort(products, sortField, sortAscending) {
     if (!sortField) return products;
 
@@ -250,13 +303,7 @@ class ReportEngine {
     });
   }
 
-  /**
-   * 获取字段值（支持统计字段）
-   * @param {Object} product - 商品对象
-   * @param {Object} column - 列配置
-   * @returns {*} 字段值
-   * @private
-   */
+  //获取字段值（支持统计字段）
   _getFieldValue(product, column) {
     const field = column.field;
 
@@ -273,10 +320,7 @@ class ReportEngine {
     return product[field];
   }
 
-  /**
-   * 生成报表
-   * @returns {Object} 生成的工作簿对象
-   */
+  // 生成报表
   generateReport() {
     // ----- 1. 获取当前模板的列配置 -----
     let columns = this._templateManager.getCurrentColumns();
@@ -406,13 +450,7 @@ class ReportEngine {
     return newWb;
   }
 
-  /**
-   * 写入报表工作表
-   * @param {Object} sheet - Excel工作表
-   * @param {Array} products - 商品数据
-   * @param {Array} columns - 列配置数组
-   * @private
-   */
+  // 写入报表工作表
   _writeReportSheet(sheet, products, columns) {
     const outputData = [];
 
@@ -467,9 +505,7 @@ class ReportEngine {
     }
   }
 
-  /**
-   * 预览报表
-   */
+  // 预览报表
   previewReport() {
     try {
       const wb = this.generateReport();

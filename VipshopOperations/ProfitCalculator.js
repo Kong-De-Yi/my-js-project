@@ -1,6 +1,22 @@
 class ProfitCalculator {
+  static _instance = null;
+
   constructor(repository) {
-    this._repository = repository;
+    if (ProfitCalculator._instance) {
+      return ProfitCalculator._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
+
+    ProfitCalculator._instance = this;
+  }
+
+  // 单例模式获取转化器对象
+  static getInstance(repository) {
+    if (!ProfitCalculator._instance) {
+      ProfitCalculator._instance = new ProfitCalculator(repository);
+    }
+    return ProfitCalculator._instance;
   }
 
   // 获取品牌配置

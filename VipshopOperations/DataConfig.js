@@ -6,6 +6,9 @@ class DataConfig {
       return DataConfig._instance;
     }
 
+    // 类型转换器
+    this._converter = Converter.getInstance();
+
     this.APP_NAME = "商品运营表";
 
     // ========== 1. 货号总表实体配置 ==========
@@ -929,7 +932,7 @@ class DataConfig {
           persist: false,
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = _converter.parseDate(obj.salesDate);
+            const date = this._converter.parseDate(obj.salesDate);
             return date ? date.getFullYear() : undefined;
           },
         },
@@ -940,7 +943,7 @@ class DataConfig {
           persist: false,
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = _converter.parseDate(obj.salesDate);
+            const date = this._converter.parseDate(obj.salesDate);
             if (!date) return undefined;
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -954,7 +957,7 @@ class DataConfig {
           persist: false,
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = _converter.parseDate(obj.salesDate);
+            const date = this._converter.parseDate(obj.salesDate);
             if (!date) return undefined;
             const year = date.getFullYear();
             const week = String(this._getISOWeekNumber(date)).padStart(2, "0");
@@ -972,7 +975,7 @@ class DataConfig {
           persist: false,
           compute: (obj) => {
             if (!obj.salesDate) return undefined;
-            const date = _converter.parseDate(obj.salesDate);
+            const date = this._converter.parseDate(obj.salesDate);
             if (!date) return undefined;
 
             const today = new Date();

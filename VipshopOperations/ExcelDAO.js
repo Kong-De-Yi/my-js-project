@@ -8,6 +8,7 @@ class ExcelDAO {
 
     this._config = DataConfig.getInstance();
     this._workbookName = this._detectWorkbookName();
+    this._converter = Converter.getInstance();
 
     ExcelDAO._instance = this;
   }
@@ -146,16 +147,16 @@ class ExcelDAO {
         // 类型转换
         switch (fieldConfig?.type) {
           case "number":
-            obj[key] = _converter.toNumber(rawValue);
+            obj[key] = this._converter.toNumber(rawValue);
             break;
           case "date":
-            obj[key] = _converter.toDateStr(rawValue);
+            obj[key] = this._converter.toDateStr(rawValue);
             break;
           case "string":
-            obj[key] = _converter.toString(rawValue);
+            obj[key] = this._converter.toString(rawValue);
             break;
           default:
-            obj[key] = _converter.toString(rawValue);
+            obj[key] = this._converter.toString(rawValue);
         }
       });
 
@@ -219,7 +220,7 @@ class ExcelDAO {
         // 格式化
         switch (fieldConfig?.type) {
           case "date":
-            return _converter.formatDate(value);
+            return this._converter.formatDate(value);
           default:
             return String(value);
         }

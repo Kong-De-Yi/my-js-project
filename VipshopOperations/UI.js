@@ -1,3 +1,4 @@
+// 全局服务实例
 let _dataImportService = null;
 let _productService = null;
 
@@ -10,6 +11,7 @@ function Main() {
 // 初始化
 function _initializeServices() {
   try {
+    // 初始化底层基础服务
     const _excelDAO = new ExcelDAO();
     const _repository = new Repository(_excelDAO);
     const _profitCalculator = new ProfitCalculator(_repository);
@@ -120,6 +122,23 @@ function UserForm1_CommandButton5_Click() {
     MsgBox(updateReport, 64, "一键更新");
   } catch (err) {
     MsgBox(`一键更新失败：${err.message}`, 16, "错误");
+  }
+}
+
+// 商品下线选项和下线原因联动
+function UserForm1_CheckBox47_Click() {
+  UserForm1.CheckBox54.Value = false;
+  UserForm1.CheckBox55.Value = false;
+  UserForm1.CheckBox56.Value = false;
+
+  if (UserForm1.CheckBox47.Value) {
+    UserForm1.CheckBox54.Enabled = true;
+    UserForm1.CheckBox55.Enabled = true;
+    UserForm1.CheckBox56.Enabled = true;
+  } else {
+    UserForm1.CheckBox54.Enabled = false;
+    UserForm1.CheckBox55.Enabled = false;
+    UserForm1.CheckBox56.Enabled = false;
   }
 }
 
