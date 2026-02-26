@@ -154,6 +154,14 @@ class ValidationEngine {
     ValidationEngine._instance = this;
   }
 
+  // 单例模式
+  static getInstance() {
+    if (!ValidationEngine._instance) {
+      ValidationEngine._instance = new ValidationEngine();
+    }
+    return ValidationEngine._instance;
+  }
+
   // 以字符串形式返回字段的组合键值，多字段用 ¦ 连接
   _getCompositeKeyValue(item, fields) {
     if (fields.length === 1) {
@@ -237,14 +245,6 @@ class ValidationEngine {
     }
 
     return { valid: true, errors: [] };
-  }
-
-  // 单例模式
-  static getInstance() {
-    if (!ValidationEngine._instance) {
-      ValidationEngine._instance = new ValidationEngine();
-    }
-    return ValidationEngine._instance;
   }
 
   // 注册自定义验证规则

@@ -65,7 +65,7 @@ class SalesStatisticsService {
     return sale ? sale.salesQuantity : 0;
   }
 
-  // 获取近N天的指定字段总和
+  // 获取近N天内销售数据的指定字段总和
   getLastNDaysSum(itemNumber, days, field) {
     if (!itemNumber) return 0;
 
@@ -88,7 +88,7 @@ class SalesStatisticsService {
 
       result.push({
         date,
-        dateStr: _excelDAO.formatDate(date),
+        dateStr: _converter.toDateStr(date),
         sale,
       });
     }

@@ -1,6 +1,12 @@
 class Repository {
+  static _instance = null;
+
   constructor(excelDAO) {
-    this._excelDAO = excelDAO;
+    if (Repository._instance) {
+      return Repository._instance;
+    }
+
+    this._excelDAO = excelDAO || ExcelDAO.getInstance(); // 可以传入，也可以自动获取;
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
 
@@ -12,6 +18,16 @@ class Repository {
       brandConfig: null,
       profitCalculator: null,
     };
+
+    Repository._instance = this;
+  }
+
+  // 单例模式
+  static getInstance(excelDAO) {
+    if (!Repository._instance) {
+      Repository._instance = new Repository(excelDAO);
+    }
+    return Repository._instance;
   }
 
   // 以字符串形式返回字段的组合键值，多字段用 ¦ 连接
@@ -878,7 +894,7 @@ class Repository {
   }
   // 获取指定货号在指定日期的销售
   findSalesByItemAndDate(itemNumber, date) {
-    const dateStr = this._excelDAO.formatDate(date);
+    const dateStr = _converter.toDateStr(date);
 
     return this.find("ProductSales", { itemNumber, salesDate: dateStr })[0];
   }
@@ -894,14 +910,14 @@ class Repository {
   }
   // 获取指定时间段的商品销售
   findSalesByDateRange(startDate, endDate) {
-    const start = this._excelDAO.parseDate(startDate)?.getTime() || 0;
-    const end = this._excelDAO.parseDate(endDate)?.getTime() || Infinity;
+    const start = Date.parse(startDate) || 0;
+    const end = Date.parse(endDate) || Infinity;
 
     return this.query("ProductSales", {
       filter: {
         salesDate: (value) => {
-          const date = this._excelDAO.parseDate(value)?.getTime() || 0;
-          return date >= start && date <= end;
+          const dateTs = Date.parse(value) || 0;
+          return dateTs >= start && dateTs <= end;
         },
       },
       sort: { field: "salesDate", order: "asc" },

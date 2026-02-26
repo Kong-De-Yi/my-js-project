@@ -155,25 +155,29 @@ class ReportTemplateManager {
     this._repository.save("ReportTemplate", allTemplates);
   }
 
-  // 从报表配置工作表载入模板配置项目，返回Map(模板名称——>配置对象数组)
+  // 从报表配置工作表载入模板字段配置，返回Map(模板名称——>模板字段对象数组)
   loadTemplates() {
     if (this._templates) {
       return this._templates;
     }
 
     try {
+      // 1.获取工作表中的模板字段对象
       const templateItems = this._repository.findAll("ReportTemplate");
       const wb = this._excelDAO.getWorkbook();
       const sheet = wb.Sheets("报表配置");
 
+      // 2.工作表没有数据则返回空Map
       if (!templateItems || templateItems.length === 0) {
         this._templates = new Map();
         return this._templates;
       }
 
+      // 3.获取颜色Map(模板名称|字段—>颜色)
       const rowColors = this._readRowColors(sheet, templateItems);
       const templates = new Map();
 
+      // 4.遍历所有的模板字段对象，添加颜色属性后push到数组
       templateItems.forEach((item) => {
         if (!item.templateName || !item.fieldName) return;
 

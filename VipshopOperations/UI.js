@@ -1,6 +1,3 @@
-let _excelDAO = null;
-let _repository = null;
-let _profitCalculator = null;
 let _dataImportService = null;
 let _productService = null;
 
@@ -12,12 +9,10 @@ function Main() {
 
 // 初始化
 function _initializeServices() {
-  if (_repository) return;
-
   try {
-    _excelDAO = new ExcelDAO();
-    _repository = new Repository(_excelDAO);
-    _profitCalculator = new ProfitCalculator(_repository);
+    const _excelDAO = new ExcelDAO();
+    const _repository = new Repository(_excelDAO);
+    const _profitCalculator = new ProfitCalculator(_repository);
 
     // 注册上下文
     _repository.setContext({
@@ -26,12 +21,14 @@ function _initializeServices() {
 
     // 注册所有索引
     const indexConfig = IndexConfig.getInstance();
+
     for (const [entityName, indexConfigs] of Object.entries(
       indexConfig.getAllIndexes(),
     )) {
       _repository.registerIndexes(entityName, indexConfigs);
     }
 
+    // 初始化服务实例
     _dataImportService = new DataImportService(_repository, _excelDAO);
     _productService = new ProductService(_repository);
   } catch (e) {

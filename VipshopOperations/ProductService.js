@@ -1,8 +1,24 @@
 class ProductService {
+  static _instance = null;
+
   constructor(repository) {
-    this._repository = repository;
+    if (ProductService._instance) {
+      return ProductService._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
+
+    ProductService._instance = this;
+  }
+
+  // 静态方法获取单例实例
+  static getInstance(repository) {
+    if (!ProductService._instance) {
+      ProductService._instance = new ProductService(repository);
+    }
+    return ProductService._instance;
   }
 
   // 计算常态商品是否断码
@@ -491,13 +507,13 @@ class ProductService {
 
   // 一键更新
   updateAll() {
-    let results = { errors: [] };
+    const results = { errors: [] };
     let result = {};
 
     // 1.更新常态商品
     try {
       result = this.updateFromRegularProducts();
-      results = { ...results, ...result };
+      Object.assign(results, result);
     } catch (e) {
       results.errors.push(e.message);
     }
@@ -505,7 +521,7 @@ class ProductService {
     // 2.更新商品价格
     try {
       result = this.updateFromPriceData();
-      results = { ...results, ...result };
+      Object.assign(results, result);
     } catch (e) {
       results.errors.push(e.message);
     }
@@ -513,7 +529,7 @@ class ProductService {
     // 3.更新商品库存
     try {
       result = this.updateFromInventory();
-      results = { ...results, ...result };
+      Object.assign(results, result);
     } catch (e) {
       results.errors.push(e.message);
     }
@@ -521,7 +537,7 @@ class ProductService {
     // 4.更新商品销售
     try {
       result = this.updateFromSalesData();
-      results = { ...results, ...result };
+      Object.assign(results, result);
     } catch (e) {
       results.errors.push(e.message);
     }

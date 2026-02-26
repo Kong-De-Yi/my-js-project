@@ -1,10 +1,26 @@
 class DataImportService {
+  static _instance = null;
+
   constructor(repository, excelDAO) {
-    this._repository = repository;
-    this._excelDAO = excelDAO;
+    if (DataImportService._instance) {
+      return DataImportService._instance;
+    }
+
+    this._repository = repository || Repository.getInstance();
+    this._excelDAO = excelDAO || ExcelDAO.getInstance();
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
     this._importableEntities = this._getImportableEntities();
+
+    DataImportService._instance = this;
+  }
+
+  // 静态方法获取单例实例
+  static getInstance(repository, excelDAO) {
+    if (!DataImportService._instance) {
+      DataImportService._instance = new DataImportService(repository, excelDAO);
+    }
+    return DataImportService._instance;
   }
 
   // 返回可以导入的所有实体名称
@@ -125,11 +141,10 @@ class DataImportService {
 
       if (existingMap.has(key)) {
         // 更新
-        const index = mergedItems.findIndex(
-          (item) =>
-            item.itemNumber === newItem.itemNumber &&
-            item.salesDate === newItem.salesDate,
-        );
+        const index = mergedItems.findIndex((item) => {
+          // 使用配置的主键字段进行比较
+          return fields.every((field) => item[field] === newItem[field]);
+        });
         if (index !== -1) {
           mergedItems[index] = newItem;
           updatedCount++;

@@ -1,13 +1,23 @@
-// ============================================================================
-// Excel数据访问对象
-// 功能：封装所有Excel读写操作，自动识别工作簿名称
-// 特点：从文件名提取品牌，无硬编码配置
-// ============================================================================
-
 class ExcelDAO {
+  static _instance = null;
+
   constructor() {
+    if (ExcelDAO._instance) {
+      return ExcelDAO._instance;
+    }
+
     this._config = DataConfig.getInstance();
     this._workbookName = this._detectWorkbookName();
+
+    ExcelDAO._instance = this;
+  }
+
+  // 单例模式
+  static getInstance() {
+    if (!ExcelDAO._instance) {
+      ExcelDAO._instance = new ExcelDAO();
+    }
+    return ExcelDAO._instance;
   }
 
   // 从当前活动工作簿或文件名识别工作簿名称
@@ -136,16 +146,16 @@ class ExcelDAO {
         // 类型转换
         switch (fieldConfig?.type) {
           case "number":
-            obj[key] = this._toNumber(rawValue);
+            obj[key] = _converter.toNumber(rawValue);
             break;
           case "date":
-            obj[key] = this._toDate(rawValue);
+            obj[key] = _converter.toDateStr(rawValue);
             break;
           case "string":
-            obj[key] = this._toString(rawValue);
+            obj[key] = _converter.toString(rawValue);
             break;
           default:
-            obj[key] = this._toString(rawValue);
+            obj[key] = _converter.toString(rawValue);
         }
       });
 
@@ -208,12 +218,8 @@ class ExcelDAO {
 
         // 格式化
         switch (fieldConfig?.type) {
-          case "number":
-            return Number(value);
           case "date":
-            return this._formatDate(value);
-          case "string":
-            return String(value);
+            return _converter.formatDate(value);
           default:
             return String(value);
         }
@@ -267,85 +273,5 @@ class ExcelDAO {
       .Sheets(entityConfig.worksheet)
       .Copy(null, targetWorkbook.Sheets(targetWorkbook.Sheets.Count));
     return ActiveSheet;
-  }
-
-  // 对外提供格式化日期服务
-  formatDate(value) {
-    return this._formatDate(value);
-  }
-
-  // 对外提供日期转化服务
-  parseDate(dateStr) {
-    return this._parseDate(dateStr);
-  }
-
-  _parseDate(dateStr) {
-    if (!dateStr) return null;
-
-    const timestamp = Date.parse(String(dateStr));
-    if (isNaN(timestamp)) return null;
-
-    return new Date(timestamp);
-  }
-
-  // 转换为数字
-  _toNumber(value) {
-    if (
-      value == null ||
-      String(value).trim() === "" ||
-      typeof value === "boolean"
-    ) {
-      return undefined;
-    }
-
-    const num = Number(value);
-    return isFinite(num) ? num : undefined;
-  }
-
-  // 转换为字符串
-  _toString(value) {
-    if (
-      value == null ||
-      String(value).trim() === "" ||
-      typeof value === "boolean"
-    ) {
-      return undefined;
-    }
-
-    return String(value);
-  }
-
-  // 转换为日期
-  _toDate(value) {
-    if (
-      value == null ||
-      String(value).trim() === "" ||
-      typeof value === "boolean"
-    ) {
-      return undefined;
-    }
-
-    const cleanValue = String(value).replace(/^'/, "");
-
-    const date = this._parseDate(cleanValue);
-    if (!date) return undefined;
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  // 格式化日期
-  _formatDate(value) {
-    const date = this._parseDate(value);
-    if (!date) return "";
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `'${year}-${month}-${day}`;
   }
 }
