@@ -11,6 +11,9 @@ class ReportEngine {
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
 
+    this._query = {};
+    this._groupBy = null;
+
     this._templateManager = new ReportTemplateManager(
       this._repository,
       this._excelDAO,
@@ -34,7 +37,7 @@ class ReportEngine {
     return ReportEngine._instance;
   }
 
-  // 构建销售统计字段映射（包含展开逻辑）
+  // 构建统计字段映射（包含展开逻辑）
   _buildStatisticsFieldsMap() {
     const map = new Map();
     const baseFields = this._statisticsFields.getAllFields();
@@ -67,6 +70,16 @@ class ReportEngine {
     }));
   }
 
+  // 设置模板引擎数据查询条件
+  setQuery(query = {}) {
+    this._query = query;
+  }
+
+  // 设置模板引擎分组条件
+  setGroupBy(groupBy) {
+    this._groupBy = groupBy;
+  }
+
   // 初始化模板
   initializeTemplates() {
     return this._templateManager.initializeDefaultTemplates();
@@ -93,71 +106,6 @@ class ReportEngine {
     // 重新构建字段映射（因为时间变化）
     this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
     return this._templateManager.loadTemplates();
-  }
-
-  // 应用筛选条件
-  _applyQuery(products, query) {
-    if (Object.keys(query).length === 0) {
-      return products;
-    }
-
-    return products.filter((product) => {
-      return Object.entries(query).every(([key, condition]) => {
-        if (Array.isArray(condition)) {
-          if (key === "offlineReason") {
-            return (
-              condition.includes(product[key]) &&
-              product.itemStatus === "商品下线"
-            );
-          }
-          return condition.includes(product[key]);
-        }
-
-        if (Array.isArray(condition) && condition.length === 2) {
-          const [min, max] = condition;
-          const value = product[key];
-
-          if (value === undefined || value === null) return false;
-
-          if (min !== undefined && max !== undefined) {
-            return Number(value) >= min && Number(value) <= max;
-          } else if (min !== undefined) {
-            return Number(value) >= min;
-          } else if (max !== undefined) {
-            return Number(value) <= max;
-          }
-          return true;
-        }
-
-        return product[key] === condition;
-      });
-    });
-  }
-
-  // 应用排序
-  _applySort(products, sortField, sortAscending) {
-    if (!sortField) return products;
-
-    return [...products].sort((a, b) => {
-      let valA = a[sortField];
-      let valB = b[sortField];
-
-      if (typeof valA === "number" && typeof valB === "number") {
-        return sortAscending ? valA - valB : valB - valA;
-      }
-
-      if (sortField === "firstListingTime") {
-        const dateA = Date.parse(valA) || 0;
-        const dateB = Date.parse(valB) || 0;
-        return sortAscending ? dateA - dateB : dateB - dateA;
-      }
-
-      valA = String(valA || "");
-      valB = String(valB || "");
-      return sortAscending
-        ? valA.localeCompare(valB)
-        : valB.localeCompare(valA);
-    });
   }
 
   //获取字段值（支持统计字段）
@@ -207,50 +155,44 @@ class ReportEngine {
       }
     });
 
-    // ----- 3. 获取筛选条件 -----
-    const query = this._buildQueryFromUI();
+    // // ----- 3. 获取筛选条件 -----
+    // const query = this._buildQueryFromUI();
 
-    // ----- 4. 获取分组字段 -----
-    let groupBy = null;
-    if (UserForm1.ComboBox4?.Value) {
-      const groupMap = {
-        上市年份: "listingYear",
-        四级品类: "fourthLevelCategory",
-        运营分类: "operationClassification",
-        下线原因: "offlineReason",
-        三级品类: "thirdLevelCategory",
-      };
-      groupBy = groupMap[UserForm1.ComboBox4.Value];
-    }
+    // // ----- 4. 获取分组字段 -----
+    // let groupBy = null;
+    // if (UserForm1.ComboBox4?.Value) {
+    //   const groupMap = {
+    //     上市年份: "listingYear",
+    //     四级品类: "fourthLevelCategory",
+    //     运营分类: "operationClassification",
+    //     下线原因: "offlineReason",
+    //     三级品类: "thirdLevelCategory",
+    //   };
+    //   groupBy = groupMap[UserForm1.ComboBox4.Value];
+    // }
 
-    // ----- 5. 获取排序字段 -----
-    let sortField = null;
-    let sortAscending = true;
-    if (UserForm1.ComboBox6?.Value) {
-      const sortMap = {
-        首次上架时间: "firstListingTime",
-        成本价: "costPrice",
-        白金价: "silverPrice",
-        利润: "profit",
-        利润率: "profitRate",
-        近7天销售量: "sales_last7Days",
-        可售库存: "sellableInventory",
-        可售天数: "sellableDays",
-        合计库存: "totalInventory",
-        销量总计: "totalSales",
-      };
-      sortField = sortMap[UserForm1.ComboBox6.Value];
-      sortAscending = UserForm1.OptionButton26?.Value;
-    }
+    // // ----- 5. 获取排序字段 -----
+    // let sortField = null;
+    // let sortAscending = true;
+    // if (UserForm1.ComboBox6?.Value) {
+    //   const sortMap = {
+    //     首次上架时间: "firstListingTime",
+    //     成本价: "costPrice",
+    //     白金价: "silverPrice",
+    //     利润: "profit",
+    //     利润率: "profitRate",
+    //     近7天销售量: "sales_last7Days",
+    //     可售库存: "sellableInventory",
+    //     可售天数: "sellableDays",
+    //     合计库存: "totalInventory",
+    //     销量总计: "totalSales",
+    //   };
+    //   sortField = sortMap[UserForm1.ComboBox6.Value];
+    //   sortAscending = UserForm1.OptionButton26?.Value;
+    // }
 
-    // ----- 6. 获取所有商品数据 -----
-    let products = this._repository.findProducts();
-
-    // ----- 7. 应用筛选 -----
-    products = this._applyQuery(products, query);
-
-    // ----- 8. 应用排序 -----
-    products = this._applySort(products, sortField, sortAscending);
+    // ----- 6. 获取数据 -----
+    const products = this._repository.query("Product", this._query);
 
     // ----- 9. 创建新工作簿 -----
     const sourceWb = this._excelDAO.getWorkbook();

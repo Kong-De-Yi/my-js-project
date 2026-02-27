@@ -79,7 +79,7 @@ class Converter {
   // 字符串——>前导符日期字符串'YYYY-MM-DD
   formatDate(value) {
     const date = this.parseDate(value);
-    if (!date) return "";
+    if (!date) return undefined;
 
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
