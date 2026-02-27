@@ -9,8 +9,9 @@ class DataImportService {
     this._repository = repository || Repository.getInstance();
     this._excelDAO = excelDAO || ExcelDAO.getInstance();
     this._config = DataConfig.getInstance();
+    this._importableEntities = this._config.getImportableEntities();
+
     this._validationEngine = ValidationEngine.getInstance();
-    this._importableEntities = this._getImportableEntities();
 
     DataImportService._instance = this;
   }
@@ -21,20 +22,6 @@ class DataImportService {
       DataImportService._instance = new DataImportService(repository, excelDAO);
     }
     return DataImportService._instance;
-  }
-
-  // 返回可以导入的所有实体名称
-  _getImportableEntities() {
-    const importableEntities = [];
-
-    // 获取可导入业务实体
-    for (const [key, value] of Object.entries(this._config.getAll())) {
-      if (value?.canImport === true) {
-        importableEntities.push(key);
-      }
-    }
-
-    return importableEntities;
   }
 
   // 验证实体是否支持导入
@@ -174,25 +161,14 @@ class DataImportService {
   _updateSystemRecord(entityName) {
     if (!this._importableEntities.includes(entityName)) return;
 
+    const entityConfig = this._config.get(entityName);
+    const importDate = entityConfig?.importDate;
+    if (!importDate) return;
+
     const systemRecord = this._repository.getSystemRecord();
     const now = new Date();
 
-    switch (entityName) {
-      case "ProductPrice":
-        systemRecord.importDateOfProductPrice = now;
-        break;
-      case "RegularProduct":
-        systemRecord.importDateOfRegularProduct = now;
-        break;
-      case "Inventory":
-        systemRecord.importDateOfInventory = now;
-        break;
-      case "ComboProduct":
-        systemRecord.importDateOfComboProduct = now;
-        break;
-      case "ProductSales":
-        systemRecord.importDateOfProductSales = now;
-    }
+    systemRecord[importDate] = now;
 
     this._repository.save("SystemRecord", [systemRecord]);
   }

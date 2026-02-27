@@ -152,11 +152,13 @@ class ExcelDAO {
           case "date":
             obj[key] = this._converter.toDateStr(rawValue);
             break;
-          case "string":
-            obj[key] = this._converter.toString(rawValue);
-            break;
           default:
             obj[key] = this._converter.toString(rawValue);
+        }
+
+        // 处理默认值
+        if (obj[key] === undefined && fieldConfig?.default !== undefined) {
+          obj[key] = fieldConfig.default;
         }
       });
 
@@ -210,15 +212,25 @@ class ExcelDAO {
         const fieldConfig = fields[key];
 
         if (
-          value == undefined ||
+          value == null ||
           String(value).trim() === "" ||
           typeof value === "boolean"
         ) {
-          return "";
+          return undefined;
+        }
+
+        // 处理默认值
+        if (
+          fieldConfig?.default !== undefined &&
+          value === fieldConfig.default
+        ) {
+          return undefined;
         }
 
         // 格式化
         switch (fieldConfig?.type) {
+          case "number":
+            return Number(value);
           case "date":
             return this._converter.formatDate(value);
           default:

@@ -8,6 +8,9 @@ class ProductService {
 
     this._repository = repository || Repository.getInstance();
     this._config = DataConfig.getInstance();
+    this._importableEntities = this._config.getImportableEntities();
+    this._updatableEntities = this._config.getUpdatableEntities();
+
     this._validationEngine = ValidationEngine.getInstance();
 
     ProductService._instance = this;
@@ -276,79 +279,42 @@ class ProductService {
     return changed;
   }
 
-  // 检查业务实体是否为今日最新
+  // 检查业务实体导入是否过期
   _checkDataExpired(entityName) {
-    if (
-      ![
-        "ProductPrice",
-        "RegularProduct",
-        "Inventory",
-        "ComboProduct",
-        "ProductSales",
-      ].includes(entityName)
-    )
-      return false;
+    if (!_importableEntities.includes(entityName)) return true;
 
-    const systemRecord = this._repository.getSystemRecord();
-    let importDate = null;
-
-    switch (entityName) {
-      case "ProductPrice":
-        importDate = systemRecord.importDateOfProductPrice;
-        break;
-
-      case "RegularProduct":
-        importDate = systemRecord.importDateOfRegularProduct;
-        break;
-
-      case "Inventory":
-        importDate = systemRecord.importDateOfInventory;
-        break;
-
-      case "ComboProduct":
-        importDate = systemRecord.importDateOfComboProduct;
-        break;
-
-      case "ProductSales":
-        importDate = systemRecord.importDateOfProductSales;
-        break;
-    }
-
-    // 没有更新日期默认过期
+    const entityConfig = this._config.get(entityName);
+    const importDate = entityConfig?.importDate;
     if (!importDate) return true;
 
-    importDate = Date.parse(importDate);
-    return new Date() - importDate > 12 * 60 * 60 * 1000;
+    const systemRecord = this._repository.getSystemRecord();
+
+    // 没有更新日期默认过期
+    if (!systemRecord[importDate]) return true;
+
+    const importDateTS = Date.parse(systemRecord[importDate]);
+    return new Date() - importDateTS > 12 * 60 * 60 * 1000;
   }
 
   // 更新系统记录
   _updateSystemRecord(entityName) {
-    if (
-      !["RegularProduct", "ProductPrice", "Inventory", "ProductSales"].includes(
-        entityName,
-      )
-    )
-      return;
+    if (!_updatableEntities.includes(entityName)) return;
+
+    const entityConfig = this._config.get(entityName);
+    const updateDate = entityConfig?.updateDate;
+    if (!updateDate) return;
 
     const systemRecord = this._repository.getSystemRecord();
     const now = new Date();
 
-    switch (entityName) {
-      case "RegularProduct":
-        systemRecord.updateDateOfRegularProduct = now;
-        break;
-      case "ProductPrice":
-        systemRecord.updateDateOfProductPrice = now;
-        break;
-      case "Inventory":
-        systemRecord.updateDateOfInventory = now;
-        break;
-      case "ProductSales":
-        systemRecord.updateDateOfProductSales = now;
-        break;
-    }
+    systemRecord[updateDate] = now;
 
     this._repository.save("SystemRecord", [systemRecord]);
+  }
+
+  // 刷新商品
+  refreshProduct() {
+    this._repository.refresh("Product");
   }
 
   // 从常态商品更新数据

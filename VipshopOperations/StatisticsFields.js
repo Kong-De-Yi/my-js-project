@@ -1,26 +1,23 @@
-class SalesStatisticsFields {
+class StatisticsFields {
   static _instance = null;
 
-  constructor(salesStatisticsService) {
-    if (SalesStatisticsFields._instance) {
-      return SalesStatisticsFields._instance;
+  constructor(statisticsService) {
+    if (StatisticsFields._instance) {
+      return StatisticsFields._instance;
     }
 
-    this._service =
-      salesStatisticsService || SalesStatisticsService.getInstance();
+    this._service = statisticsService || StatisticsService.getInstance();
     this._years = this._service.getYearRange();
 
-    SalesStatisticsFields._instance = this;
+    StatisticsFields._instance = this;
   }
 
   // 单例模式
-  static getInstance(salesStatisticsService) {
-    if (!SalesStatisticsFields._instance) {
-      SalesStatisticsFields._instance = new SalesStatisticsFields(
-        salesStatisticsService,
-      );
+  static getInstance(statisticsService) {
+    if (!StatisticsFields._instance) {
+      StatisticsFields._instance = new StatisticsFields(statisticsService);
     }
-    return SalesStatisticsFields._instance;
+    return StatisticsFields._instance;
   }
 
   // 获取所有可用的统计字段

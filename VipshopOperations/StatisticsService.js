@@ -1,9 +1,9 @@
-class SalesStatisticsService {
+class StatisticsService {
   static _instance = null;
 
   constructor(repository) {
-    if (SalesStatisticsService._instance) {
-      return SalesStatisticsService._instance;
+    if (StatisticsService._instance) {
+      return StatisticsService._instance;
     }
 
     this._repository = repository || Repository.getInstance();
@@ -12,15 +12,15 @@ class SalesStatisticsService {
     this._salesCache = null;
     this._currentDate = new Date();
 
-    SalesStatisticsService._instance = this;
+    StatisticsService._instance = this;
   }
 
   // 单例模式
   static getInstance(repository) {
-    if (!SalesStatisticsService._instance) {
-      SalesStatisticsService._instance = new SalesStatisticsService(repository);
+    if (!StatisticsService._instance) {
+      StatisticsService._instance = new StatisticsService(repository);
     }
-    return SalesStatisticsService._instance;
+    return StatisticsService._instance;
   }
 
   // 刷新销售数据缓存
@@ -28,10 +28,10 @@ class SalesStatisticsService {
     this._salesCache = this._repository.findAll("ProductSales");
   }
 
-  // 计算销售数据字段filed的总和
-  _sumField(sales, field) {
-    return sales.reduce((sum, sale) => {
-      return sum + sale[field];
+  // 计算数据集字段filed的总和
+  _sumField(items, field) {
+    return items.reduce((sum, item) => {
+      return sum + item[field] || 0;
     }, 0);
   }
 

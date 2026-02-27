@@ -1,3 +1,4 @@
+// 1.计算字段不支持默认值，在计算函数中处理默认值
 class DataConfig {
   static _instance = null;
 
@@ -15,6 +16,7 @@ class DataConfig {
     this.PRODUCT = {
       worksheet: "货号总表",
       uniqueKey: "itemNumber",
+
       fields: {
         itemNumber: {
           title: "货号",
@@ -68,6 +70,8 @@ class DataConfig {
                 return "黄金限量";
               case obj.silverPrice:
                 return "白金促";
+              case obj.top3:
+                return "TOP3";
               case obj.silverLimit:
                 return "白金限量";
             }
@@ -132,6 +136,7 @@ class DataConfig {
         marketingPositioning: {
           title: "营销定位",
           type: "string",
+          default: "利润款",
           validators: [
             {
               type: "enum",
@@ -158,11 +163,13 @@ class DataConfig {
         userOperations1: {
           title: "中台1",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         userOperations2: {
           title: "中台2",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finalPrice: {
@@ -510,56 +517,10 @@ class DataConfig {
       },
     };
 
-    // ========== 2. 商品价格实体 ==========
-    this.PRODUCT_PRICE = {
-      worksheet: "商品价格",
-      canImport: true,
-      importMode: "overwrite",
-      requiredTitles: ["货号", "成本价", "最低价", "白金价", "中台1", "中台2"],
-      uniqueKey: "itemNumber",
-
-      fields: {
-        itemNumber: {
-          title: "货号",
-          type: "string",
-          validators: [{ type: "required" }],
-        },
-
-        costPrice: {
-          title: "成本价",
-          type: "number",
-          validators: [{ type: "required" }, { type: "positive" }],
-        },
-
-        lowestPrice: {
-          title: "最低价",
-          type: "number",
-          validators: [{ type: "required" }, { type: "positive" }],
-        },
-
-        silverPrice: {
-          title: "白金价",
-          type: "number",
-          validators: [{ type: "required" }, { type: "positive" }],
-        },
-
-        userOperations1: {
-          title: "中台1",
-          type: "number",
-          validators: [{ type: "nonNegative" }],
-        },
-
-        userOperations2: {
-          title: "中台2",
-          type: "number",
-          validators: [{ type: "nonNegative" }],
-        },
-      },
-    };
-
-    // ========== 3. 常态商品实体 ==========
+    // ========== 2. 常态商品实体 ==========
     this.REGULAR_PRODUCT = {
       worksheet: "常态商品",
+
       canImport: true,
       importMode: "overwrite",
       requiredTitles: [
@@ -580,6 +541,11 @@ class DataConfig {
         "商品ID",
         "P_SPU",
       ],
+      importDate: "importDateOfRegularProduct",
+
+      canUpdate: true,
+      updateDate: "updateDateOfRegularProduct",
+
       uniqueKey: "productCode",
 
       fields: {
@@ -751,9 +717,65 @@ class DataConfig {
       },
     };
 
+    // ========== 3. 商品价格实体 ==========
+    this.PRODUCT_PRICE = {
+      worksheet: "商品价格",
+
+      canImport: true,
+      importMode: "append",
+      requiredTitles: ["货号", "成本价", "最低价", "白金价", "中台1", "中台2"],
+      importDate: "importDateOfProductPrice",
+
+      canUpdate: true,
+      updateDate: "updateDateOfProductPrice",
+
+      uniqueKey: "itemNumber",
+
+      fields: {
+        itemNumber: {
+          title: "货号",
+          type: "string",
+          validators: [{ type: "required" }],
+        },
+
+        costPrice: {
+          title: "成本价",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+
+        lowestPrice: {
+          title: "最低价",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+
+        silverPrice: {
+          title: "白金价",
+          type: "number",
+          validators: [{ type: "required" }, { type: "positive" }],
+        },
+
+        userOperations1: {
+          title: "中台1",
+          type: "number",
+          default: 0,
+          validators: [{ type: "nonNegative" }],
+        },
+
+        userOperations2: {
+          title: "中台2",
+          type: "number",
+          default: 0,
+          validators: [{ type: "nonNegative" }],
+        },
+      },
+    };
+
     // ========== 4. 库存实体 ==========
     this.INVENTORY = {
       worksheet: "商品库存",
+
       canImport: true,
       importMode: "overwrite",
       requiredTitles: [
@@ -766,6 +788,11 @@ class DataConfig {
         "销退仓库存",
         "采购在途数",
       ],
+      importDate: "importDateOfInventory",
+
+      canUpdate: true,
+      updateDate: "updateDateOfInventory",
+
       uniqueKey: "productCode",
 
       fields: {
@@ -815,9 +842,12 @@ class DataConfig {
     // ========== 5. 组合商品实体 ==========
     this.COMBO_PRODUCT = {
       worksheet: "组合商品",
+
       canImport: true,
       importMode: "overwrite",
       requiredTitles: ["组合商品实体编码", "商品编码", "数量"],
+      importDate: "importDateOfComboProduct",
+
       uniqueKey: {
         fields: ["productCode", "subProductCode"],
         message: "组合商品实体编码与子商品编码组合必须唯一",
@@ -848,6 +878,7 @@ class DataConfig {
     // ========== 6. 商品销售实体==========
     this.PRODUCT_SALES = {
       worksheet: "商品销售",
+
       canImport: true,
       importMode: "append",
       requiredTitles: [
@@ -862,6 +893,11 @@ class DataConfig {
         "销售额",
         "首次上架时间",
       ],
+      importDate: "importDateOfProductSales",
+
+      canUpdate: true,
+      updateDate: "updateDateOfProductSales",
+
       uniqueKey: {
         fields: ["itemNumber", "salesDate"],
         message: "同一货号同一天的销售数据只能有一条",
@@ -992,6 +1028,7 @@ class DataConfig {
     // ========== 7. 系统记录实体 ==========
     this.SYSTEM_RECORD = {
       worksheet: "系统记录",
+
       uniqueKey: "recordDate",
 
       fields: {
@@ -1025,7 +1062,9 @@ class DataConfig {
     // ========== 8. 品牌配置实体 ==========
     this.BRAND_CONFIG = {
       worksheet: "品牌配置",
+
       uniqueKey: "brandSN",
+
       fields: {
         brandSN: {
           title: "品牌SN",
@@ -1149,10 +1188,10 @@ class DataConfig {
   getAll() {
     return {
       Product: this.PRODUCT,
-      ProductPrice: this.PRODUCT_PRICE,
       RegularProduct: this.REGULAR_PRODUCT,
-      Inventory: this.INVENTORY,
+      ProductPrice: this.PRODUCT_PRICE,
       ComboProduct: this.COMBO_PRODUCT,
+      Inventory: this.INVENTORY,
       ProductSales: this.PRODUCT_SALES,
       SystemRecord: this.SYSTEM_RECORD,
       BrandConfig: this.BRAND_CONFIG,
@@ -1169,6 +1208,34 @@ class DataConfig {
   // 获取指定实体的配置对象
   get(entityName) {
     return this[entityName] || this.getAll()[entityName];
+  }
+
+  // 获取可导入的所有实体名称
+  getImportableEntities() {
+    const importableEntities = [];
+
+    // 获取可导入业务实体
+    for (const [key, value] of Object.entries(this.getAll())) {
+      if (value?.canImport === true) {
+        importableEntities.push(key);
+      }
+    }
+
+    return importableEntities;
+  }
+
+  // 获取可更新的所有实体名称
+  getUpdatableEntities() {
+    const updatableEntities = [];
+
+    // 获取可导入业务实体
+    for (const [key, value] of Object.entries(this.getAll())) {
+      if (value?.canUpdate === true) {
+        updatableEntities.push(key);
+      }
+    }
+
+    return updatableEntities;
   }
 
   // 以{key:title,...}形式返回实体的字段与标题映射
