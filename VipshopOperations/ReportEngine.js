@@ -11,9 +11,6 @@ class ReportEngine {
     this._config = DataConfig.getInstance();
     this._validationEngine = ValidationEngine.getInstance();
 
-    this._query = {};
-    this._groupBy = null;
-
     this._templateManager = new ReportTemplateManager(
       this._repository,
       this._excelDAO,
@@ -25,6 +22,11 @@ class ReportEngine {
 
     // 缓存所有销售统计字段配置
     this._statisticsFieldsMap = this._buildStatisticsFieldsMap();
+
+    this._context = {
+      query: {},
+      groupBy: null,
+    };
 
     ReportEngine._instance = this;
   }
@@ -70,14 +72,9 @@ class ReportEngine {
     }));
   }
 
-  // 设置模板引擎数据查询条件
-  setQuery(query = {}) {
-    this._query = query;
-  }
-
-  // 设置模板引擎分组条件
-  setGroupBy(groupBy) {
-    this._groupBy = groupBy;
+  // 设置上下文环境
+  setContext(context) {
+    Object.assign(this._context, context);
   }
 
   // 初始化模板
@@ -192,7 +189,7 @@ class ReportEngine {
     // }
 
     // ----- 6. 获取数据 -----
-    const products = this._repository.query("Product", this._query);
+    const products = this._repository.query("Product", this._context.query);
 
     // ----- 9. 创建新工作簿 -----
     const sourceWb = this._excelDAO.getWorkbook();
