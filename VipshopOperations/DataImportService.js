@@ -157,22 +157,6 @@ class DataImportService {
     };
   }
 
-  // 更新系统记录
-  _updateSystemRecord(entityName) {
-    if (!this._importableEntities.includes(entityName)) return;
-
-    const entityConfig = this._config.get(entityName);
-    const importDate = entityConfig?.importDate;
-    if (!importDate) return;
-
-    const systemRecord = this._repository.getSystemRecord();
-    const now = new Date();
-
-    systemRecord[importDate] = now;
-
-    this._repository.save("SystemRecord", [systemRecord]);
-  }
-
   // 执行数据导入
   import() {
     // 1. 获取导入数据
@@ -232,7 +216,7 @@ class DataImportService {
     }
 
     // 8.更新系统记录
-    this._updateSystemRecord(entityName);
+    this._repository.updateSystemRecord(entityName, "importDate");
 
     // 9. 清空导入数据表
     this._excelDAO.clear("ImportData");

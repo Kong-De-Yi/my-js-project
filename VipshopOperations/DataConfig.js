@@ -682,12 +682,14 @@ class DataConfig {
         sellableInventory: {
           title: "可售库存",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         sellableDays: {
           title: "可售天数",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         MID: {
           title: "商品ID",
@@ -804,37 +806,44 @@ class DataConfig {
         mainInventory: {
           title: "数量",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         incomingInventory: {
           title: "进货仓库存",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         finishingInventory: {
           title: "后整车间",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         oversoldInventory: {
           title: "超卖车间",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         prepareInventory: {
           title: "备货车间",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         returnInventory: {
           title: "销退仓库存",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         purchaseInventory: {
           title: "采购在途数",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
       },
     };
@@ -867,10 +876,8 @@ class DataConfig {
         subProductQuantity: {
           title: "数量",
           type: "number",
-          validators: [
-            { type: "required" },
-            { type: "range", params: { min: 1 } },
-          ],
+          default: 1,
+          validators: [{ type: "range", params: { min: 1 } }],
         },
       },
     };
@@ -918,37 +925,44 @@ class DataConfig {
         exposureUV: {
           title: "曝光UV",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         productDetailsUV: {
           title: "商详UV",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         addToCartUV: {
           title: "加购UV(加购用户数)",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         customerCount: {
           title: "客户数",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         rejectAndReturnCount: {
           title: "拒退件数",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         salesQuantity: {
           title: "销售量",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         salesAmount: {
           title: "销售额",
           type: "number",
-          validators: [{ type: "required" }, { type: "nonNegative" }],
+          default: 0,
+          validators: [{ type: "nonNegative" }],
         },
         firstListingTime: {
           title: "首次上架时间",

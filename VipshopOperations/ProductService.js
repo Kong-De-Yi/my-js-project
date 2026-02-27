@@ -9,7 +9,6 @@ class ProductService {
     this._repository = repository || Repository.getInstance();
     this._config = DataConfig.getInstance();
     this._importableEntities = this._config.getImportableEntities();
-    this._updatableEntities = this._config.getUpdatableEntities();
 
     this._validationEngine = ValidationEngine.getInstance();
 
@@ -281,7 +280,7 @@ class ProductService {
 
   // 检查业务实体导入是否过期
   _checkDataExpired(entityName) {
-    if (!_importableEntities.includes(entityName)) return true;
+    if (!this._importableEntities.includes(entityName)) return true;
 
     const entityConfig = this._config.get(entityName);
     const importDate = entityConfig?.importDate;
@@ -294,22 +293,6 @@ class ProductService {
 
     const importDateTS = Date.parse(systemRecord[importDate]);
     return new Date() - importDateTS > 12 * 60 * 60 * 1000;
-  }
-
-  // 更新系统记录
-  _updateSystemRecord(entityName) {
-    if (!_updatableEntities.includes(entityName)) return;
-
-    const entityConfig = this._config.get(entityName);
-    const updateDate = entityConfig?.updateDate;
-    if (!updateDate) return;
-
-    const systemRecord = this._repository.getSystemRecord();
-    const now = new Date();
-
-    systemRecord[updateDate] = now;
-
-    this._repository.save("SystemRecord", [systemRecord]);
   }
 
   // 刷新商品
@@ -363,7 +346,7 @@ class ProductService {
     const allProducts = [...updatedProducts, ...newProducts];
 
     this._repository.save("Product", allProducts);
-    this._updateSystemRecord("RegularProduct");
+    this._repository.updateSystemRecord("RegularProduct", "updateDate");
 
     return { regular: result };
   }
@@ -394,7 +377,7 @@ class ProductService {
     });
 
     this._repository.save("Product", products);
-    this._updateSystemRecord("ProductPrice");
+    this._repository.updateSystemRecord("ProductPrice", "updateDate");
 
     return { price: result };
   }
@@ -435,7 +418,7 @@ class ProductService {
     });
 
     this._repository.save("Product", products);
-    this._updateSystemRecord("Inventory");
+    this._repository.updateSystemRecord("Inventory", "updateDate");
 
     return { inventory: result };
   }
@@ -466,7 +449,7 @@ class ProductService {
     });
 
     this._repository.save("Product", products);
-    this._updateSystemRecord("ProductSales");
+    this._repository.updateSystemRecord("ProductSales", "updateDate");
 
     return { sales: result };
   }

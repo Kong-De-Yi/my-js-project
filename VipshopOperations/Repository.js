@@ -8,6 +8,8 @@ class Repository {
 
     this._excelDAO = excelDAO || ExcelDAO.getInstance(); // 可以传入，也可以自动获取;
     this._config = DataConfig.getInstance();
+    this._importableEntities = this._config.getImportableEntities();
+    this._updatableEntities = this._config.getUpdatableEntities();
     this._validationEngine = ValidationEngine.getInstance();
     this._converter = Converter.getInstance();
 
@@ -941,5 +943,30 @@ class Repository {
 
     this._cache.set("SystemRecord", [newRecord]);
     return newRecord;
+  }
+
+  // 更新系统记录
+  updateSystemRecord(entityName, dateField) {
+    if (
+      !this._importableEntities.includes(entityName) &&
+      dateField === "importDate"
+    )
+      return;
+    if (
+      !this._updatableEntities.includes(entityName) &&
+      dateField === "updateDate"
+    )
+      return;
+
+    const entityConfig = this._config.get(entityName);
+    const updateField = entityConfig?.[dateField];
+    if (!updateField) return;
+
+    const systemRecord = this.getSystemRecord();
+    const now = new Date();
+
+    systemRecord[updateField] = now;
+
+    this.save("SystemRecord", [systemRecord]);
   }
 }
