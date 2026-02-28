@@ -157,18 +157,18 @@ class ProfitCalculator {
     if (silverPrice == undefined || typeof silverPrice === "boolean")
       return null;
     const silver = Number(silverPrice);
-    if (isNaN(silver) || silver <= 0) {
+    if (!isFinite(silver) || silver <= 0) {
       return null;
     }
 
     switch (level) {
       case "白金限量":
         return Math.floor(silver * 0.95);
-      case "白金等级":
+      case "白金促":
         return silver;
       case "TOP3":
         return Number((silver / 0.9 + 0.06).toFixed(1));
-      case "黄金等级":
+      case "黄金促":
         return Number((silver / 0.9 / 0.95 + 0.06 * 2).toFixed(1));
       case "直通车":
         return Number((silver / 0.9 / 0.95 / 0.95 + 0.06 * 3).toFixed(1));

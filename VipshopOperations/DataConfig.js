@@ -66,8 +66,6 @@ class DataConfig {
                 return "直通车";
               case obj.goldPrice:
                 return "黄金促";
-              case obj.goldLimit:
-                return "黄金限量";
               case obj.silverPrice:
                 return "白金促";
               case obj.top3:
@@ -255,11 +253,6 @@ class DataConfig {
           type: "number",
           validators: [{ type: "positive" }],
         },
-        goldLimit: {
-          title: "黄金限量",
-          type: "number",
-          validators: [{ type: "positive" }],
-        },
         top3: {
           title: "TOP3",
           type: "number",
@@ -273,11 +266,13 @@ class DataConfig {
         sellableInventory: {
           title: "可售库存",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         sellableDays: {
           title: "可售天数",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         isOutOfStock: {
@@ -287,123 +282,128 @@ class DataConfig {
         totalInventory: {
           title: "合计库存",
           type: "computed",
-          compute: (obj) => {
-            return (
-              (obj.finishedGoodsMainInventory || 0) +
-              (obj.finishedGoodsIncomingInventory || 0) +
-              (obj.finishedGoodsFinishingInventory || 0) +
-              (obj.finishedGoodsOversoldInventory || 0) +
-              (obj.finishedGoodsPrepareInventory || 0) +
-              (obj.finishedGoodsReturnInventory || 0) +
-              (obj.finishedGoodsPurchaseInventory || 0) +
-              (obj.generalGoodsMainInventory || 0) +
-              (obj.generalGoodsIncomingInventory || 0) +
-              (obj.generalGoodsFinishingInventory || 0) +
-              (obj.generalGoodsOversoldInventory || 0) +
-              (obj.generalGoodsPrepareInventory || 0) +
-              (obj.generalGoodsReturnInventory || 0) +
-              (obj.generalGoodsPurchaseInventory || 0)
-            );
-          },
+          compute: (obj) =>
+            obj.finishedGoodsMainInventory +
+            obj.finishedGoodsIncomingInventory +
+            obj.finishedGoodsFinishingInventory +
+            obj.finishedGoodsOversoldInventory +
+            obj.finishedGoodsPrepareInventory +
+            obj.finishedGoodsReturnInventory +
+            obj.finishedGoodsPurchaseInventory +
+            obj.generalGoodsMainInventory +
+            obj.generalGoodsIncomingInventory +
+            obj.generalGoodsFinishingInventory +
+            obj.generalGoodsOversoldInventory +
+            obj.generalGoodsPrepareInventory +
+            obj.generalGoodsReturnInventory +
+            obj.generalGoodsPurchaseInventory,
         },
         finishedGoodsTotalInventory: {
           title: "成品合计",
           type: "computed",
-          compute: (obj) => {
-            return (
-              (obj.finishedGoodsMainInventory || 0) +
-              (obj.finishedGoodsIncomingInventory || 0) +
-              (obj.finishedGoodsFinishingInventory || 0) +
-              (obj.finishedGoodsOversoldInventory || 0) +
-              (obj.finishedGoodsPrepareInventory || 0) +
-              (obj.finishedGoodsReturnInventory || 0) +
-              (obj.finishedGoodsPurchaseInventory || 0)
-            );
-          },
+          compute: (obj) =>
+            obj.finishedGoodsMainInventory +
+            obj.finishedGoodsIncomingInventory +
+            obj.finishedGoodsFinishingInventory +
+            obj.finishedGoodsOversoldInventory +
+            obj.finishedGoodsPrepareInventory +
+            obj.finishedGoodsReturnInventory +
+            obj.finishedGoodsPurchaseInventory,
         },
         finishedGoodsMainInventory: {
           title: "成品主仓",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsIncomingInventory: {
           title: "成品进货",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsFinishingInventory: {
           title: "成品后整",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsOversoldInventory: {
           title: "成品超卖",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsPrepareInventory: {
           title: "成品备货",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsReturnInventory: {
           title: "成品销退",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         finishedGoodsPurchaseInventory: {
           title: "成品在途",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsTotalInventory: {
           title: "通货合计",
           type: "computed",
-          compute: (obj) => {
-            return (
-              (obj.generalGoodsMainInventory || 0) +
-              (obj.generalGoodsIncomingInventory || 0) +
-              (obj.generalGoodsFinishingInventory || 0) +
-              (obj.generalGoodsOversoldInventory || 0) +
-              (obj.generalGoodsPrepareInventory || 0) +
-              (obj.generalGoodsReturnInventory || 0) +
-              (obj.generalGoodsPurchaseInventory || 0)
-            );
-          },
+          compute: (obj) =>
+            obj.generalGoodsMainInventory +
+            obj.generalGoodsIncomingInventory +
+            obj.generalGoodsFinishingInventory +
+            obj.generalGoodsOversoldInventory +
+            obj.generalGoodsPrepareInventory +
+            obj.generalGoodsReturnInventory +
+            obj.generalGoodsPurchaseInventory,
         },
         generalGoodsMainInventory: {
           title: "通货主仓",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsIncomingInventory: {
           title: "通货进货",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsFinishingInventory: {
           title: "通货后整",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsOversoldInventory: {
           title: "通货超卖",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsPrepareInventory: {
           title: "通货备货",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsReturnInventory: {
           title: "通货销退",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         generalGoodsPurchaseInventory: {
           title: "通货在途",
           type: "number",
+          default: 0,
           validators: [{ type: "nonNegative" }],
         },
         brandSN: {
@@ -510,6 +510,7 @@ class DataConfig {
           validators: [{ type: "positive" }],
         },
       },
+
       defaultSort: (a, b) => {
         const dateA = Date.parse(a.firstListingTime) || 0;
         const dateB = Date.parse(b.firstListingTime) || 0;

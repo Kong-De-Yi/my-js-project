@@ -453,6 +453,11 @@ class Repository {
     // 计算计算字段
     this._computeFields(data, entityConfig);
 
+    // 按默认排序规则排序
+    if (entityConfig?.defaultSort) {
+      data.sort(entityConfig.defaultSort);
+    }
+
     this._excelDAO.write(entityName, data);
     this._cache.set(entityName, data);
     this._buildAllIndexes(entityName, data);

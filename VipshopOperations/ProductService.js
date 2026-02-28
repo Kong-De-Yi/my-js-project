@@ -9,6 +9,7 @@ class ProductService {
     this._repository = repository || Repository.getInstance();
     this._config = DataConfig.getInstance();
     this._importableEntities = this._config.getImportableEntities();
+    this._profitCalculator = ProfitCalculator.getInstance();
 
     this._validationEngine = ValidationEngine.getInstance();
 
@@ -104,11 +105,25 @@ class ProductService {
     };
   }
 
+  // 指定货号清除价格信息
+  _resetPriceFields(product) {
+    product.costPrice = undefined;
+    product.lowestPrice = undefined;
+    product.silverPrice = undefined;
+    product.userOperations1 = 0;
+    product.userOperations2 = 0;
+  }
+
   // 根据货号取商品价格信息更新指定产品
   _applyPriceToProduct(product) {
     let changed = false;
     const price = this._repository.findPriceByItemNumber(product.itemNumber);
-    if (!price) return changed;
+    if (!price) {
+      // 没有找到价格信息则重置
+      this._resetPriceFields(product);
+      changed = true;
+      return changed;
+    }
 
     if (product.costPrice !== price.costPrice) {
       product.costPrice = price.costPrice;
@@ -128,6 +143,23 @@ class ProductService {
     }
     if (product.userOperations2 !== price.userOperations2) {
       product.userOperations2 = price.userOperations2;
+      changed = true;
+    }
+
+    // 活动价
+    const activityPrices = {
+      directTrainPrice: "直通车",
+      goldPrice: "黄金促",
+      top3: "TOP3",
+      silverLimit: "白金限量",
+    };
+
+    for (const [ap, level] of Object.entries(activityPrices)) {
+      if (product[ap]) continue;
+      product[ap] = this._profitCalculator.calculateActivityPrice(
+        product.silverPrice,
+        level,
+      );
       changed = true;
     }
 
