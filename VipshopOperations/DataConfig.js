@@ -1144,12 +1144,12 @@ class DataConfig {
       fields: {
         templateName: { title: "模板名称", type: "string" },
         fieldName: { title: "字段", type: "string" },
-        columnTitle: { title: "显式标题", type: "string" },
-        columnWidth: { title: "显式宽度", type: "number" },
+        columnTitle: { title: "显示标题", type: "string" },
+        columnWidth: { title: "显示宽度", type: "number" },
         isVisible: { title: "是否显示", type: "string" },
-        displayOrder: { title: "显式顺序", type: "number" },
-        numberFormat: { title: "显式格式", type: "string" },
-        titleColor: { title: "标题颜色", type: "string", persist: false },
+        displayOrder: { title: "显示顺序", type: "number" },
+        numberFormat: { title: "显示格式", type: "string" },
+        titleColor: { title: "标题颜色", type: "string" },
         description: { title: "说明", type: "string" },
       },
     };

@@ -202,6 +202,7 @@ class ReportEngine {
     );
 
     // ----- 11. 按分组输出 -----
+    const groupBy = this._context.groupBy;
     if (groupBy) {
       const groups = {};
 

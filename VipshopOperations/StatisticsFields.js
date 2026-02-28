@@ -337,6 +337,11 @@ class StatisticsFields {
     ];
   }
 
+  // 获取指定字段
+  getField(field) {
+    return this.getAllFields().find((f) => (f.field = field));
+  }
+
   // 展开字段配置
   expandField(field) {
     if (field.type !== "expandable" || !field.expandConfig) {

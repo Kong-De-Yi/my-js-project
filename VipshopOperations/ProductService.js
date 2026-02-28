@@ -34,7 +34,24 @@ class ProductService {
       .filter(Boolean)
       .sort((a, b) => +a - +b);
 
-    return outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : "";
+    return outOfStockSizes.length > 0 ? outOfStockSizes.join("/") : undefined;
+  }
+
+  //指定货号清除常态商品信息
+  _resetRegularFields(product) {
+    product.styleNumber = undefined;
+    product.color = undefined;
+    product.thirdLevelCategory = undefined;
+    product.itemStatus = undefined;
+    product.tagPrice = undefined;
+    product.vipshopPrice = undefined;
+    product.finalPrice = undefined;
+    product.sellableInventory = 0;
+    product.sellableDays = 0;
+    product.isOutOfStock = undefined;
+    product.MID = undefined;
+    product.P_SPU = undefined;
+    product.brandSN = undefined;
   }
 
   // 从常态商品更新指定产品
@@ -42,7 +59,11 @@ class ProductService {
     const regulars = this._repository.findRegularProductsByItemNumber(
       product.itemNumber,
     );
-    if (regulars.length === 0) return product;
+    if (regulars.length === 0) {
+      // 没有找到常态商品则重置
+      this._resetRegularFields(product);
+      return product;
+    }
 
     const first = regulars[0];
 
@@ -68,7 +89,7 @@ class ProductService {
 
     // 清空下线原因（如果已上线）
     if (product.itemStatus !== "商品下线") {
-      product.offlineReason = "";
+      product.offlineReason = undefined;
     }
 
     return product;
@@ -119,10 +140,20 @@ class ProductService {
     let changed = false;
     const price = this._repository.findPriceByItemNumber(product.itemNumber);
     if (!price) {
-      // 没有找到价格信息则重置
-      this._resetPriceFields(product);
-      changed = true;
-      return changed;
+      if (
+        product.costPrice &&
+        product.lowestPrice &&
+        product.silverPrice &&
+        product.userOperations1 &&
+        product.userOperations2
+      ) {
+        // 没有找到价格信息则重置
+        this._resetPriceFields(product);
+        changed = true;
+        return changed;
+      } else {
+        return changed;
+      }
     }
 
     if (product.costPrice !== price.costPrice) {
@@ -281,7 +312,15 @@ class ProductService {
       product.itemNumber,
       lastNDays,
     );
-    if (salesLastNDays.length === 0) return changed;
+    if (salesLastNDays.length === 0) {
+      if (oldRARR) {
+        product.rejectAndReturnRate = undefined;
+        changed = true;
+        return changed;
+      } else {
+        return changed;
+      }
+    }
 
     // 2.计算近N天的拒退率
     const rr = salesLastNDays.reduce(
