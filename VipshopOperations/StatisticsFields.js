@@ -1,6 +1,39 @@
+/**
+ * 统计字段定义 - 提供所有可用的统计字段配置和展开逻辑
+ *
+ * @class StatisticsFields
+ * @description 作为统计字段的元数据管理类，提供以下功能：
+ * - 定义所有可用的统计字段（年/月/周/日销量、UV指标、拒退率等）
+ * - 字段类型分为三类：
+ *   - summary: 汇总字段，直接计算返回单个值
+ *   - expandable: 可展开字段，运行时展开为多个具体字段
+ *   - computed: 计算字段，由expandable展开后生成
+ * - 字段展开逻辑：将抽象字段（如"近7天销量"）展开为多个具体日期的字段
+ * - 动态年份计算：根据当前时间自动计算前年、去年、今年
+ *
+ * 该类采用单例模式，确保全局只有一个统计字段定义实例。
+ *
+ * @example
+ * // 获取统计字段实例
+ * const statisticsFields = StatisticsFields.getInstance(statisticsService);
+ *
+ * // 获取所有可用字段
+ * const allFields = statisticsFields.getAllFields();
+ *
+ * // 获取特定字段
+ * const field = statisticsFields.getField("sales_last7Days");
+ *
+ * // 展开可展开字段
+ * const expandedFields = statisticsFields.expandField(field);
+ */
 class StatisticsFields {
+  /** @type {StatisticsFields} 单例实例 */
   static _instance = null;
 
+  /**
+   * 创建统计字段定义实例
+   * @param {StatisticsService} [statisticsService] - 统计服务实例，若不提供则自动获取
+   */
   constructor(statisticsService) {
     if (StatisticsFields._instance) {
       return StatisticsFields._instance;
@@ -12,7 +45,12 @@ class StatisticsFields {
     StatisticsFields._instance = this;
   }
 
-  // 单例模式
+  /**
+   * 获取统计字段定义的单例实例
+   * @static
+   * @param {StatisticsService} [statisticsService] - 统计服务实例
+   * @returns {StatisticsFields} 统计字段定义实例
+   */
   static getInstance(statisticsService) {
     if (!StatisticsFields._instance) {
       StatisticsFields._instance = new StatisticsFields(statisticsService);
@@ -20,7 +58,56 @@ class StatisticsFields {
     return StatisticsFields._instance;
   }
 
-  // 获取所有可用的统计字段
+  /**
+   * 获取所有可用的统计字段配置
+   * @returns {Array<Object>} 统计字段配置数组
+   *
+   * @description
+   * 返回的字段按以下分类组织：
+   *
+   * 1. 年销量汇总（3个summary字段）
+   *    - yearSales_beforeLast: 前年销量
+   *    - yearSales_last: 去年销量
+   *    - yearSales_current: 今年销量
+   *
+   * 2. 月销量明细（3个expandable字段）
+   *    - monthSales_beforeLast: 前年各月销量
+   *    - monthSales_last: 去年各月销量
+   *    - monthSales_current: 今年各月销量
+   *
+   * 3. 周销量明细（3个expandable字段）
+   *    - weekSales_beforeLast: 前年各周销量
+   *    - weekSales_last: 去年各周销量
+   *    - weekSales_current: 今年各周销量
+   *
+   * 4. 日销量明细（3个expandable字段）
+   *    - daySales_beforeLast: 前年各日销量
+   *    - daySales_last: 去年各日销量
+   *    - daySales_current: 今年各日销量
+   *
+   * 5. 近7天UV指标（5个summary字段）
+   *    - sales_last7Days: 近7天销量
+   *    - uv_exposure_last7Days: 近7天曝光UV
+   *    - uv_productDetails_last7Days: 近7天商详UV
+   *    - uv_addToCart_last7Days: 近7天加购UV
+   *    - rejectCount_last7Days: 近7天拒退件数
+   *
+   * 6. 近N天销量明细（3个expandable字段）
+   *    - sales_last15Days: 近15天每日销量
+   *    - sales_last30Days: 近30天每日销量
+   *    - sales_last45Days: 近45天每日销量
+   *
+   * 每个字段配置包含：
+   * - field: 字段标识
+   * - title: 显示标题
+   * - type: 字段类型（summary/expandable/computed）
+   * - width: 默认列宽
+   * - format: 数字格式
+   * - group: 所属分组
+   * - description: 字段描述
+   * - compute: 计算函数（summary类型）
+   * - expandConfig: 展开配置（expandable类型）
+   */
   getAllFields() {
     return [
       // ========== 年销量（3个汇总字段）==========
@@ -337,12 +424,37 @@ class StatisticsFields {
     ];
   }
 
-  // 获取指定字段
+  /**
+   * 根据字段标识获取字段配置
+   * @param {string} field - 字段标识（如 "sales_last7Days"）
+   * @returns {Object|undefined} 字段配置对象，未找到时返回undefined
+   */
   getField(field) {
     return this.getAllFields().find((f) => (f.field = field));
   }
 
-  // 展开字段配置
+  /**
+   * 展开可展开字段
+   * @param {Object} field - 字段配置对象
+   * @returns {Array<Object>} 展开后的字段数组
+   * @description
+   * 展开逻辑：
+   * 1. 如果字段类型不是 expandable 或没有 expandConfig，直接返回原字段
+   * 2. 根据 expandConfig.type 调用对应的展开方法：
+   *    - month: 按月份展开（12个月）
+   *    - week: 按周数展开（最多53周）
+   *    - day: 按日期展开（全年每天）
+   *    - recent: 按最近N天展开
+   * 3. 返回展开后的具体字段数组（每个字段类型为 computed）
+   *
+   * 展开后的字段包含：
+   * - field: 具体字段标识（如 "month_2024_01"）
+   * - title: 具体标题（如 "1月"）
+   * - type: "computed"
+   * - width/format/group: 继承自父字段
+   * - parentField: 父字段标识
+   * - compute: 具体计算函数
+   */
   expandField(field) {
     if (field.type !== "expandable" || !field.expandConfig) {
       return [field];
@@ -371,7 +483,20 @@ class StatisticsFields {
     return expandedFields;
   }
 
-  // 展开月份字段
+  /**
+   * 展开月份字段
+   * @private
+   * @param {Object} config - 展开配置
+   * @param {number} config.year - 年份
+   * @param {string} config.label - 年份标签（如"前年"、"去年"）
+   * @param {Object} baseField - 基础字段配置
+   * @returns {Array<Object>} 展开后的月份字段数组
+   * @description
+   * 为指定年份的每个月创建一个字段：
+   * - 字段名格式：month_{年份}_{月份（两位）}
+   * - 标题格式：{标签}{月份}月
+   * - 计算函数：调用 service.getMonthSales()
+   */
   _expandMonthField(config, baseField) {
     const fields = [];
     const months = this._service.getMonthsOfYear(config.year);
@@ -400,7 +525,20 @@ class StatisticsFields {
     return fields;
   }
 
-  // 展开周数字段
+  /**
+   * 展开周数字段
+   * @private
+   * @param {Object} config - 展开配置
+   * @param {number} config.year - 年份
+   * @param {string} config.label - 年份标签
+   * @param {Object} baseField - 基础字段配置
+   * @returns {Array<Object>} 展开后的周数字段数组
+   * @description
+   * 为指定年份的每周创建一个字段：
+   * - 字段名格式：week_{年份}_{周数（两位）}
+   * - 标题格式：{标签}第{周数}周
+   * - 计算函数：调用 service.getWeekSales()
+   */
   _expandWeekField(config, baseField) {
     const fields = [];
     const weeks = this._service.getWeeksOfYear(config.year);
@@ -429,7 +567,22 @@ class StatisticsFields {
     return fields;
   }
 
-  // 展开日数字段
+  /**
+   * 展开日数字段
+   * @private
+   * @param {Object} config - 展开配置
+   * @param {number} config.year - 年份
+   * @param {string} config.label - 年份标签
+   * @param {Object} baseField - 基础字段配置
+   * @returns {Array<Object>} 展开后的日数字段数组
+   * @description
+   * 为指定年份的每一天创建一个字段：
+   * - 字段名格式：day_{年份}_{月份（两位）}_{日期（两位）}
+   * - 标题格式：{标签}{月份}月{日期}日
+   * - 计算函数：调用 service.getDaySales()
+   *
+   * 注意：全年最多366天，展开后会生成大量字段
+   */
   _expandDayField(config, baseField) {
     const fields = [];
     const months = this._service.getDaysOfYear(config.year);
@@ -459,7 +612,22 @@ class StatisticsFields {
     return fields;
   }
 
-  // 展开近N天字段
+  /**
+   * 展开近N天字段
+   * @private
+   * @param {Object} config - 展开配置
+   * @param {number} config.days - 天数（如15、30、45）
+   * @param {string} config.label - 标签（如"近15天"）
+   * @param {Object} baseField - 基础字段配置
+   * @returns {Array<Object>} 展开后的日数字段数组
+   * @description
+   * 为最近N天的每一天创建一个字段：
+   * - 字段名格式：recent_{天数}_{月份（两位）}_{日期（两位）}
+   * - 标题格式：{月份}月{日期}日
+   * - 计算函数：调用 service.getDaySales()
+   *
+   * 日期顺序：从最早到最晚（与报表显示顺序一致）
+   */
   _expandRecentField(config, baseField) {
     const fields = [];
     const dates = this._service.getRecentDays(config.days);

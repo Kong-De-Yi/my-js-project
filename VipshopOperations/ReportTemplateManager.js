@@ -1,6 +1,46 @@
+/**
+ * 报表模板管理器 - 负责报表模板的加载、管理和持久化
+ *
+ * @class ReportTemplateManager
+ * @description 作为报表模板的核心管理类，提供以下功能：
+ * - 从 Excel 的"报表配置"工作表加载模板配置
+ * - 创建和管理多个报表模板（如库存预警、利润分析、销售分析等）
+ * - 模板字段的排序、可见性控制
+ * - 标题行颜色的读取和应用
+ * - 默认模板的初始化
+ *
+ * 模板配置数据结构：
+ * - 每个模板包含多个字段（列）配置
+ * - 字段配置包括：字段名、标题、列宽、可见性、显示顺序、数字格式、标题颜色
+ * - 标题颜色单独存储在 Excel 单元格背景色中
+ *
+ * 该类采用单例模式，确保全局只有一个模板管理器实例。
+ *
+ * @example
+ * // 获取模板管理器实例
+ * const templateManager = ReportTemplateManager.getInstance(repository, excelDAO);
+ *
+ * // 初始化默认模板
+ * templateManager.initializeDefaultTemplates();
+ *
+ * // 获取所有模板名称
+ * const templateList = templateManager.getTemplateList();
+ *
+ * // 设置当前模板
+ * templateManager.setCurrentTemplate("库存预警报表");
+ *
+ * // 获取当前模板的列配置
+ * const columns = templateManager.getCurrentColumns();
+ */
 class ReportTemplateManager {
+  /** @type {ReportTemplateManager} 单例实例 */
   static _instance = null;
 
+  /**
+   * 创建报表模板管理器实例
+   * @param {Repository} [repository] - 数据仓库实例，若不提供则自动获取
+   * @param {ExcelDAO} [excelDAO] - Excel数据访问对象实例，若不提供则自动获取
+   */
   constructor(repository, excelDAO) {
     if (ReportTemplateManager._instance) {
       return ReportTemplateManager._instance;
@@ -16,7 +56,13 @@ class ReportTemplateManager {
     ReportTemplateManager._instance = this;
   }
 
-  // 单例模式
+  /**
+   * 获取报表模板管理器的单例实例
+   * @static
+   * @param {Repository} [repository] - 数据仓库实例
+   * @param {ExcelDAO} [excelDAO] - Excel数据访问对象实例
+   * @returns {ReportTemplateManager} 模板管理器实例
+   */
   static getInstance(repository, excelDAO) {
     if (!ReportTemplateManager._instance) {
       ReportTemplateManager._instance = new ReportTemplateManager(
@@ -27,6 +73,19 @@ class ReportTemplateManager {
     return ReportTemplateManager._instance;
   }
 
+  /**
+   * 初始化默认报表模板
+   * @returns {Map<string, Array>} 初始化后的模板映射（模板名 -> 字段配置数组）
+   * @description
+   * 初始化流程：
+   * 1. 尝试从工作表加载已有模板配置
+   * 2. 如果已有模板配置，直接返回
+   * 3. 如果没有配置，创建以下默认模板：
+   *    - 库存预警报表：货号、款号、颜色、三级品类、可售库存、可售天数、成品库存、通货库存、合计库存、是否断码
+   *    - 利润分析报表：货号、款号、营销定位、成本价、白金价、到手价、利润、利润率、中台操作字段
+   *    - 销售分析报表：包含年/月/周/日维度的销量对比、近N天销量、曝光UV、商详UV、加购UV、拒退件数等
+   * 4. 将默认模板保存到"报表配置"工作表
+   */
   initializeDefaultTemplates() {
     // 载入工作表中配置的模板
     const templates = this.loadTemplates();
@@ -140,7 +199,32 @@ class ReportTemplateManager {
     return this.loadTemplates();
   }
 
-  // 创建报表模板并保存至报表配置工作表
+  /**
+   * 创建默认报表模板并保存至报表配置工作表
+   * @private
+   * @param {string} templateName - 模板名称
+   * @param {Array<Object>} columns - 列配置数组
+   * @param {string} columns[].field - 字段名
+   * @param {string} columns[].title - 列标题
+   * @param {number} columns[].width - 列宽
+   * @param {number} columns[].order - 显示顺序
+   * @description
+   * 创建流程：
+   * 1. 将列配置转换为 ReportTemplate 实体格式
+   * 2. 查询已存在的模板配置
+   * 3. 剔除同名的旧模板配置
+   * 4. 合并新旧配置并保存
+   *
+   * ReportTemplate 实体字段：
+   * - templateName: 模板名称
+   * - fieldName: 字段名
+   * - columnTitle: 列标题
+   * - columnWidth: 列宽
+   * - isVisible: 是否可见（默认"是"）
+   * - displayOrder: 显示顺序
+   * - numberFormat: 数字格式（默认空）
+   * - description: 描述（默认空）
+   */
   _createDefaultTemplate(templateName, columns) {
     // 构造报表模板项目
     const templateData = [];
@@ -175,7 +259,21 @@ class ReportTemplateManager {
     this._repository.save("ReportTemplate", allTemplates);
   }
 
-  // 返回报表配置的模板项目标题颜色Map(模板名称|字段名称——>颜色)
+  /**
+   * 读取报表配置工作表中每行的标题颜色
+   * @private
+   * @param {Excel.Worksheet} sheet - 报表配置工作表
+   * @returns {Map<string, number>} 颜色映射，键为"模板名称|字段名"，值为VBA颜色值
+   * @description
+   * 读取逻辑：
+   * 1. 定位"模板名称"、"字段"、"标题颜色"三列的索引
+   * 2. 遍历数据行（从第2行开始）
+   * 3. 对每一行，读取"标题颜色"列的单元格背景色
+   * 4. 构建映射键：`${模板名称}|${字段名}`
+   * 5. 将颜色值存入映射
+   *
+   * 这种设计允许每个字段独立配置标题颜色，实现更灵活的报表样式。
+   */
   _readRowColors(sheet) {
     const colorMap = new Map();
 
@@ -233,7 +331,19 @@ class ReportTemplateManager {
     return colorMap;
   }
 
-  // 获取默认的模板项目
+  /**
+   * 获取默认的列配置（当没有模板或模板为空时使用）
+   * @private
+   * @returns {Array<Object>} 默认列配置数组
+   * @description
+   * 默认配置包含10个基础字段：
+   * - 货号、款号、颜色、三级品类（颜色：15773696）
+   * - 首次上架、状态（颜色：13434879）
+   * - 成本价、白金价、到手价（颜色：10092543）
+   * - 可售库存（颜色：10079487）
+   *
+   * 每个字段包含：field、title、width、visible、order、color
+   */
   _getDefaultColumns() {
     return [
       {
@@ -319,7 +429,32 @@ class ReportTemplateManager {
     ];
   }
 
-  // 从报表配置工作表载入模板字段配置，返回Map(模板名称——>模板字段对象数组)
+  /**
+   * 从报表配置工作表加载所有模板配置
+   * @returns {Map<string, Array>} 模板映射，键为模板名称，值为字段配置数组
+   * @description
+   * 加载流程：
+   * 1. 如果已有缓存(this._templates)，直接返回缓存
+   * 2. 从仓库查询所有 ReportTemplate 实体
+   * 3. 获取报表配置工作表对象
+   * 4. 读取每行的标题颜色映射
+   * 5. 遍历所有模板项，按模板名称分组：
+   *    - 过滤掉 templateName 或 fieldName 为空的项
+   *    - 为每个字段添加颜色属性
+   *    - 构建字段配置对象
+   * 6. 按 displayOrder 对每个模板的字段进行排序
+   * 7. 缓存结果并返回
+   *
+   * 字段配置对象属性：
+   * - field: 字段名
+   * - title: 列标题
+   * - width: 列宽
+   * - visible: 是否可见
+   * - order: 显示顺序
+   * - format: 数字格式
+   * - description: 描述
+   * - color: 标题颜色（从Excel读取）
+   */
   loadTemplates() {
     if (this._templates) {
       return this._templates;
@@ -361,7 +496,7 @@ class ReportTemplateManager {
           order: item.displayOrder || 999,
           format: item.numberFormat || "",
           description: item.description || "",
-          color: color,
+          color: item.titleColor || color,
         });
       });
 
@@ -382,19 +517,30 @@ class ReportTemplateManager {
     }
   }
 
-  //  返回所有的报表模板名称数组
+  /**
+   * 获取所有可用的报表模板名称列表
+   * @returns {string[]} 按字母顺序排序的模板名称数组
+   */
   getTemplateList() {
     const templates = this.loadTemplates();
     return Array.from(templates.keys()).sort();
   }
 
-  // 获取指定的报表模板的报表项目，返回数组
+  /**
+   * 获取指定模板的字段配置
+   * @param {string} templateName - 模板名称
+   * @returns {Array<Object>} 字段配置数组，如果模板不存在则返回空数组
+   */
   getTemplate(templateName) {
     const templates = this.loadTemplates();
     return templates.get(templateName) || [];
   }
 
-  // 设置当前的报表模板
+  /**
+   * 设置当前使用的报表模板
+   * @param {string} templateName - 模板名称
+   * @returns {boolean} 设置是否成功（模板必须存在）
+   */
   setCurrentTemplate(templateName) {
     if (templateName && this.loadTemplates().has(templateName)) {
       this._currentTemplate = templateName;
@@ -403,12 +549,23 @@ class ReportTemplateManager {
     return false;
   }
 
-  // 获取当前的报表模板
+  /**
+   * 获取当前使用的报表模板名称
+   * @returns {string|null} 当前模板名称，未设置时返回null
+   */
   getCurrentTemplate() {
     return this._currentTemplate;
   }
 
-  // 获取当前模板的模板项目
+  /**
+   * 获取当前模板的字段配置
+   * @returns {Array<Object>} 字段配置数组
+   * @description
+   * 获取逻辑：
+   * 1. 如果未设置当前模板，返回默认列配置
+   * 2. 如果设置了当前模板但模板为空，返回默认列配置
+   * 3. 否则返回当前模板的字段配置
+   */
   getCurrentColumns() {
     if (!this._currentTemplate) {
       return this._getDefaultColumns();
@@ -422,7 +579,18 @@ class ReportTemplateManager {
     return columns;
   }
 
-  // 刷新模板数据
+  /**
+   * 刷新模板缓存
+   * @returns {Map<string, Array>} 刷新后的模板映射
+   * @description
+   * 刷新流程：
+   * 1. 清除模板缓存(this._templates = null)
+   * 2. 重新调用 loadTemplates 从工作表加载最新配置
+   *
+   * 通常在以下情况调用：
+   * - 用户在UI中修改了模板配置后
+   * - 需要获取最新配置时
+   */
   refresh() {
     this._templates = null;
     return this.loadTemplates();

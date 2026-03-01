@@ -1,7 +1,60 @@
-// 1.计算字段不支持默认值，在计算函数中处理默认值
+/**
+ * 数据配置 - 定义所有业务实体的字段结构、验证规则和导入导出配置
+ *
+ * @class DataConfig
+ * @description 作为系统的配置中心，提供以下功能：
+ * - 定义所有业务实体的字段结构（字段名、标题、类型、验证规则、默认值）
+ * - 配置实体的导入/导出规则（可导入、导入模式、必填字段）
+ * - 配置实体的唯一键（单字段/复合主键）
+ * - 定义计算字段的计算逻辑
+ * - 提供实体配置的查询接口
+ *
+ * 字段类型说明：
+ * - string: 字符串类型
+ * - number: 数字类型
+ * - date: 日期类型
+ * - computed: 计算字段（不持久化，运行时通过 compute 函数计算）
+ *
+ * 验证规则类型：
+ * - required: 必填项验证
+ * - enum: 枚举值验证
+ * - pattern: 正则表达式验证
+ * - range: 数值范围验证
+ * - nonNegative: 非负数验证
+ * - positive: 正数验证
+ * - number: 数字格式验证
+ * - date: 日期格式验证
+ * - year: 年份范围验证
+ * - month: 月份验证（1-12）
+ * - week: 周数验证（1-53）
+ *
+ * 导入模式：
+ * - overwrite: 覆盖模式（直接替换目标工作表全部数据）
+ * - append: 追加模式（基于主键进行新增或更新）
+ *
+ * 该类采用单例模式，确保全局只有一个配置实例。
+ *
+ * @example
+ * // 获取配置实例
+ * const config = DataConfig.getInstance();
+ *
+ * // 获取Product实体配置
+ * const productConfig = config.get("Product");
+ *
+ * // 获取可导入的实体列表
+ * const importable = config.getImportableEntities();
+ *
+ * // 解析唯一键
+ * const uniqueKey = config.parseUniqueKey(["itemNumber", "salesDate"]);
+ */
 class DataConfig {
+  /** @type {DataConfig} 单例实例 */
   static _instance = null;
 
+  /**
+   * 创建数据配置实例
+   * @private
+   */
   constructor() {
     if (DataConfig._instance) {
       return DataConfig._instance;
@@ -62,6 +115,8 @@ class DataConfig {
           type: "computed",
           compute: (obj) => {
             switch (obj.finalPrice) {
+              case obj.vipshopPrice:
+                return "未提报";
               case obj.directTrainPrice:
                 return "直通车";
               case obj.goldPrice:
@@ -169,6 +224,11 @@ class DataConfig {
           type: "number",
           default: 0,
           validators: [{ type: "nonNegative" }],
+        },
+        vipshopPrice: {
+          title: "唯品价",
+          type: "number",
+          validators: [{ type: "positive" }],
         },
         finalPrice: {
           title: "到手价",
@@ -501,11 +561,6 @@ class DataConfig {
         },
         tagPrice: {
           title: "市场价",
-          type: "number",
-          validators: [{ type: "positive" }],
-        },
-        vipshopPrice: {
-          title: "唯品价",
           type: "number",
           validators: [{ type: "positive" }],
         },
@@ -1149,7 +1204,7 @@ class DataConfig {
         isVisible: { title: "是否显示", type: "string" },
         displayOrder: { title: "显示顺序", type: "number" },
         numberFormat: { title: "显示格式", type: "string" },
-        titleColor: { title: "标题颜色", type: "string" },
+        titleColor: { title: "标题颜色", type: "number" },
         description: { title: "说明", type: "string" },
       },
     };
@@ -1157,7 +1212,11 @@ class DataConfig {
     DataConfig._instance = this;
   }
 
-  // 单例模式获取实体配置器对象
+  /**
+   * 获取数据配置的单例实例
+   * @static
+   * @returns {DataConfig} 数据配置实例
+   */
   static getInstance() {
     if (!DataConfig._instance) {
       DataConfig._instance = new DataConfig();
@@ -1165,7 +1224,30 @@ class DataConfig {
     return DataConfig._instance;
   }
 
-  // 以{fields:[],message:string,isComposite:boolean}对象返回实体主键
+  /**
+   * 解析实体唯一键配置
+   * @param {string|string[]|Object} uniqueKey - 唯一键配置
+   * @returns {Object} 解析结果
+   * @returns {string[]} return.fields - 唯一键字段数组
+   * @returns {string} return.message - 唯一键冲突时的错误信息
+   * @returns {boolean} return.isComposite - 是否为复合主键
+   *
+   * @description
+   * 支持三种配置格式：
+   * 1. 字符串：单字段主键，如 "itemNumber"
+   * 2. 数组：复合主键，如 ["itemNumber", "salesDate"]
+   * 3. 对象：带自定义错误信息的复合主键，如 {
+   *      fields: ["itemNumber", "salesDate"],
+   *      message: "同一货号同一天的销售数据只能有一条"
+   *    }
+   *
+   * @example
+   * parseUniqueKey("itemNumber")
+   * // 返回 { fields: ["itemNumber"], message: "字段【itemNumber】的值必须唯一", isComposite: false }
+   *
+   * parseUniqueKey(["itemNumber", "salesDate"])
+   * // 返回 { fields: ["itemNumber", "salesDate"], message: "【itemNumber】、【salesDate】的组合值必须唯一", isComposite: true }
+   */
   parseUniqueKey(uniqueKey) {
     if (!uniqueKey) {
       return { fields: [], message: "", isComposite: false };
@@ -1199,7 +1281,23 @@ class DataConfig {
     return { fields: [], message: "", isComposite: false };
   }
 
-  // 获取所有实体的配置对象
+  /**
+   * 获取所有实体的配置对象
+   * @returns {Object.<string, Object>} 实体名称到配置的映射
+   *
+   * @description
+   * 返回的配置对象包含以下实体：
+   * - Product: 货号总表
+   * - RegularProduct: 常态商品
+   * - ProductPrice: 商品价格
+   * - ComboProduct: 组合商品
+   * - Inventory: 商品库存
+   * - ProductSales: 商品销售
+   * - SystemRecord: 系统记录
+   * - BrandConfig: 品牌配置
+   * - ImportData: 导入数据
+   * - ReportTemplate: 报表模板
+   */
   getAll() {
     return {
       Product: this.PRODUCT,
@@ -1215,17 +1313,53 @@ class DataConfig {
     };
   }
 
-  //获取APPNAME
+  /**
+   * 获取应用名称
+   * @returns {string} 应用名称（用于工作簿名称验证）
+   */
   getAppName() {
     return this.APP_NAME;
   }
 
-  // 获取指定实体的配置对象
+  /**
+   * 获取指定实体的配置对象
+   * @param {string} entityName - 实体名称
+   * @returns {Object|null} 实体配置对象，不存在时返回null
+   *
+   * @description
+   * 实体配置对象结构：
+   * - worksheet: {string} 工作表名称
+   * - uniqueKey: {string|Array|Object} 唯一键配置
+   * - canImport: {boolean} 是否可导入
+   * - importMode: {string} 导入模式（overwrite/append）
+   * - requiredTitles: {string[]} 必填字段标题列表
+   * - importDate: {string} 导入日期字段名
+   * - canUpdate: {boolean} 是否可更新
+   * - updateDate: {string} 更新日期字段名
+   * - fields: {Object} 字段配置映射
+   * - defaultSort: {Function} 默认排序函数
+   *
+   * @example
+   * const config = dataConfig.get("Product");
+   * console.log(config.worksheet); // "货号总表"
+   * console.log(config.fields.itemNumber.title); // "货号"
+   */
   get(entityName) {
     return this[entityName] || this.getAll()[entityName];
   }
 
-  // 获取可导入的所有实体名称
+  /**
+   * 获取所有可导入的实体名称
+   * @returns {string[]} 可导入实体名称数组
+   * @description
+   * 筛选条件：实体配置中 canImport === true
+   * 可导入实体包括：
+   * - RegularProduct（常态商品）
+   * - ProductPrice（商品价格）
+   * - Inventory（商品库存）
+   * - ComboProduct（组合商品）
+   * - ProductSales（商品销售）
+   */
   getImportableEntities() {
     const importableEntities = [];
 
@@ -1239,7 +1373,13 @@ class DataConfig {
     return importableEntities;
   }
 
-  // 获取可更新的所有实体名称
+  /**
+   * 获取所有可更新的实体名称
+   * @returns {string[]} 可更新实体名称数组
+   * @description
+   * 筛选条件：实体配置中 canUpdate === true
+   * 可更新实体用于记录最后更新时间
+   */
   getUpdatableEntities() {
     const updatableEntities = [];
 
@@ -1253,7 +1393,20 @@ class DataConfig {
     return updatableEntities;
   }
 
-  // 以{key:title,...}形式返回实体的字段与标题映射
+  /**
+   * 获取实体的字段与标题映射
+   * @param {string} entityName - 实体名称
+   * @returns {Object.<string, string>} 字段名到标题的映射
+   *
+   * @example
+   * getFieldTitles("Product")
+   * // 返回 {
+   * //   itemNumber: "货号",
+   * //   styleNumber: "款号",
+   * //   color: "颜色",
+   * //   ...
+   * // }
+   */
   getFieldTitles(entityName) {
     const entity = this.get(entityName);
     if (!entity) return {};
@@ -1265,7 +1418,14 @@ class DataConfig {
     return titles;
   }
 
-  // 返回实体中指定标题的字段
+  /**
+   * 根据标题查找对应的字段名
+   * @param {string} entityName - 实体名称
+   * @param {string} title - 字段标题
+   * @returns {string|null} 字段名，未找到时返回null
+   * @description
+   * 用于从Excel表头反向查找对应的字段名
+   */
   findFieldByTitle(entityName, title) {
     const entity = this.get(entityName);
     if (!entity) return null;
@@ -1278,6 +1438,17 @@ class DataConfig {
     return null;
   }
 
+  /**
+   * 获取ISO周数
+   * @private
+   * @param {Date} date - 日期对象
+   * @returns {number} ISO周数（1-53）
+   * @description
+   * 用于计算商品销售中的年周字段
+   * ISO周数定义：
+   * - 一周从周一开始
+   * - 一年的第一周是包含该年第一个周四的那一周
+   */
   _getISOWeekNumber(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
